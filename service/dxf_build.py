@@ -111,13 +111,14 @@ class DxfAssembler:
         )
 
     def _text(self, s: str, cx_mm: float, cy_top_mm: float, height_mm: float,
-              rot_deg: float = 0, layer: str = "TEXT") -> None:
+              rot_deg: float = 0, layer: str = "TEXT",
+              align: ezdxf.enums.TextEntityAlignment = ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER) -> None:
         x, y = self._to_dxf(cx_mm, cy_top_mm)
         t = self.msp.add_text(
             s, dxfattribs={"layer": layer, "height": self._s(height_mm),
                            "style": TEXT_STYLE, "rotation": rot_deg},
         )
-        t.set_placement((x, y), align=ezdxf.enums.TextEntityAlignment.MIDDLE_CENTER)
+        t.set_placement((x, y), align=align)
 
     # ----- parts -----
 
@@ -159,8 +160,15 @@ class DxfAssembler:
         else:
             # rect / symbol: draw the footprint rectangle + tag
             self._rect(x, y_top, fw, fh, "EQUIP")
-            if el.get("tag"):
-                self._text(el["tag"], x + fw / 2, y_top + fh / 2, 10)
+            tag = el.get("tag")
+            if tag:
+                # top-left of the part, 2.5mm above; rotate if wider than the part
+                bl = ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT
+                tag_h, gap = 10.0, 2.5
+                if len(tag) * tag_h * 0.62 <= fw:
+                    self._text(tag, x, y_top - gap, tag_h, align=bl)
+                else:
+                    self._text(tag, x + tag_h * 0.75, y_top - gap, tag_h, rot_deg=90, align=bl)
 
     def _place_group(self, g: dict[str, Any]) -> None:
         item = self.library.get(g["lib_key"])

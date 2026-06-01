@@ -29,6 +29,26 @@ function tagText(text: string, cx: number, cy: number, rot: number, h = 6): stri
   return `<text x="${cx}" y="${cy}" font-size="${h}" text-anchor="middle" dominant-baseline="central"${t}>${esc(text)}</text>`;
 }
 
+/** Rough Arial width of a tag, for the overflow→rotate decision. */
+export const TAG_FONT_MM = 10;
+export const TAG_GAP_MM = 2.5;
+const estTagWidth = (text: string, h = TAG_FONT_MM) => text.length * h * 0.62;
+
+/**
+ * A part tag at the part's top-left, sitting TAG_GAP_MM above the part. If it
+ * would be wider than the part it's rotated to read bottom-to-top (e.g. F01 on a
+ * narrow fuse holder). (engineer's as-built convention)
+ */
+function partTag(text: string, px: number, py: number, fw: number): string {
+  const h = TAG_FONT_MM;
+  if (estTagWidth(text) <= fw) {
+    return `<text x="${px}" y="${py - TAG_GAP_MM}" font-size="${h}" text-anchor="start">${esc(text)}</text>`;
+  }
+  const ax = px + h * 0.75;
+  const ay = py - TAG_GAP_MM;
+  return `<text x="${ax}" y="${ay}" font-size="${h}" text-anchor="start" transform="rotate(-90 ${ax} ${ay})">${esc(text)}</text>`;
+}
+
 function renderElement(el: Element, library: Library): string {
   const item = library[el.lib_key];
   if (!item) {
@@ -37,10 +57,8 @@ function renderElement(el: Element, library: Library): string {
   }
   const size = libItemSize(item);
   const f = rotatedFootprint(size, el.rot_deg);
-  const cx = el.x_mm + f.w / 2;
-  const cy = el.y_mm + f.h / 2;
   const body = `<rect x="${el.x_mm}" y="${el.y_mm}" width="${f.w}" height="${f.h}" fill="#fff" stroke="#222" stroke-width="0.4"/>`;
-  const label = el.tag ? tagText(el.tag, cx, cy, 0, 10) : "";
+  const label = el.tag ? partTag(el.tag, el.x_mm, el.y_mm, f.w) : "";
   return `<g data-id="${el.id}" data-layer="EQUIP">${body}${label}</g>`;
 }
 

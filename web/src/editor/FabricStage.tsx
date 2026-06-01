@@ -12,7 +12,7 @@
  *  - zoom buttons/Fit  → driven by the `zoom` / `fitNonce` props from App
  */
 import { useEffect, useRef } from "react";
-import { Canvas, Rect, Textbox } from "fabric";
+import { Canvas, Rect, Textbox, FabricText } from "fabric";
 import type { LayoutModel, Library } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
@@ -248,9 +248,16 @@ export default function FabricStage(props: Props) {
         fill: item ? "#ffffff" : "#fdecec", stroke: item ? "#222" : "#c00", strokeWidth: 0.4, ...EQUIP_OPTS, ...alert(el.id),
       })));
       if (el.tag) {
-        canvas.add(new Textbox(el.tag, {
-          left: el.x_mm, top: el.y_mm + f.h / 2 - 5, width: f.w,
-          fontSize: 10, fontFamily: "Arial", textAlign: "center", selectable: false, evented: false,
+        const tagH = 10;
+        const gap = 2.5;
+        const rotated = el.tag.length * tagH * 0.62 > f.w; // wider than part -> rotate
+        canvas.add(new FabricText(el.tag, {
+          fontSize: tagH, fontFamily: "Arial", fill: "#111",
+          selectable: false, evented: false,
+          originX: "left", originY: "bottom",
+          left: rotated ? el.x_mm + tagH * 0.75 : el.x_mm,
+          top: el.y_mm - gap,
+          angle: rotated ? -90 : 0,
         }));
       }
     }
