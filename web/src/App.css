@@ -2,11 +2,11 @@
 
 .app {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 210px 1fr 290px;
   grid-template-rows: auto 1fr;
   grid-template-areas:
-    "top   top"
-    "stage panel";
+    "top top   top"
+    "lib stage panel";
   height: 100vh;
   font-family: Arial, Helvetica, sans-serif;
   color: #1a1a1a;
@@ -22,71 +22,48 @@
   background: #fff;
 }
 
-.toolbar {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
-}
-.group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-left: 14px;
-  border-left: 1px solid #e3e3e3;
-}
+.toolbar { margin-left: auto; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.group { display: flex; align-items: center; gap: 6px; padding-left: 14px; border-left: 1px solid #e3e3e3; }
 .group:first-child { border-left: none; padding-left: 0; }
-.toolbar button.ghost {
-  background: #fff;
-  color: #2f6fed;
-}
-.field {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: #444;
-}
+.field { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #444; }
 .field select { font-size: 13px; padding: 2px 4px; }
 .toolbar button {
-  font-size: 13px;
-  padding: 6px 12px;
-  border: 1px solid #2f6fed;
-  background: #2f6fed;
-  color: #fff;
-  border-radius: 5px;
-  cursor: pointer;
+  font-size: 13px; padding: 6px 12px; border: 1px solid #2f6fed;
+  background: #2f6fed; color: #fff; border-radius: 5px; cursor: pointer;
 }
-.toolbar button:disabled { opacity: 0.6; cursor: default; }
-.status { font-size: 12px; max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toolbar button.ghost { background: #fff; color: #2f6fed; }
+.toolbar button:disabled { opacity: 0.5; cursor: default; }
+.status { font-size: 12px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status.ok { color: #1a7f37; }
 .status.err { color: #c00; }
 
-.stage {
-  grid-area: stage;
-  overflow: auto;
-  padding: 24px;
-  background: #e9ecef;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
+/* library sidebar */
+.library { grid-area: lib; border-right: 1px solid #ddd; background: #fff; overflow: auto; padding: 10px 10px 20px; }
+.library h3 { margin: 4px 0 10px; font-size: 14px; }
+.band { margin-bottom: 12px; }
+.band-name { font-size: 11px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; }
+.lib-item {
+  display: block; width: 100%; text-align: left; margin: 2px 0; padding: 5px 8px;
+  font-size: 12px; border: 1px solid #e3e3e3; border-radius: 4px; background: #fafafa; cursor: pointer;
 }
+.lib-item:hover { background: #eef3ff; border-color: #2f6fed; }
 
-.sheet {
-  background: #fff;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18);
-}
-.sheet svg { display: block; }
+/* canvas stage */
+.stage { grid-area: stage; overflow: auto; padding: 24px; background: #e9ecef; display: flex; justify-content: center; align-items: flex-start; }
+.sheet { background: #fff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18); }
+.sheet canvas { display: block; }
 
-.panel {
-  grid-area: panel;
-  border-left: 1px solid #ddd;
-  padding: 12px 14px;
-  background: #fff;
-  overflow: auto;
-}
+/* properties + validation panel */
+.panel { grid-area: panel; border-left: 1px solid #ddd; padding: 12px 14px; background: #fff; overflow: auto; }
 .panel h3 { margin: 4px 0 8px; font-size: 14px; }
+.panel h3.mt { margin-top: 18px; border-top: 1px solid #eee; padding-top: 12px; }
+.prow { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 5px 0; font-size: 12px; }
+.plabel { color: #555; }
+.pval { display: flex; align-items: center; gap: 6px; }
+.prow input[type="text"], .prow input[type="number"] { width: 110px; font-size: 12px; padding: 3px 5px; }
+.pval .ro { color: #111; }
+.pval button { font-size: 11px; padding: 2px 7px; border: 1px solid #ccc; background: #f4f4f4; border-radius: 4px; cursor: pointer; }
+.panel button.danger { margin-top: 12px; font-size: 12px; padding: 6px 12px; border: 1px solid #c00; background: #fff; color: #c00; border-radius: 5px; cursor: pointer; }
 
 .ok { color: #1a7f37; font-size: 13px; }
 .issues { list-style: none; margin: 0; padding: 0; font-size: 12px; }
