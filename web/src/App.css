@@ -26,7 +26,20 @@
   margin-left: auto;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 14px;
+  border-left: 1px solid #e3e3e3;
+}
+.group:first-child { border-left: none; padding-left: 0; }
+.toolbar button.ghost {
+  background: #fff;
+  color: #2f6fed;
 }
 .field {
   display: flex;

@@ -44,9 +44,14 @@ function renderElement(el: Element, library: Library): string {
   return `<g data-id="${el.id}" data-layer="EQUIP">${body}${label}</g>`;
 }
 
-export function renderToSvg(model: LayoutModel, library: Library, opts: RenderOptions = {}): string {
+/**
+ * The inner SVG markup for the plate (everything inside the <svg>), in editor
+ * mm coordinates. Exposed so the page composer (render/page.ts) can embed it
+ * under a transform for paper-sized PDF/PNG output, while `renderToSvg` wraps it
+ * for the live preview and the lightweight SVG export.
+ */
+export function renderPlateBody(model: LayoutModel, library: Library): string {
   const { width_mm: W, height_mm: H } = model.plate;
-  const scale = opts.unitsPerMm ?? 1;
 
   const parts: string[] = [];
 
@@ -98,11 +103,17 @@ export function renderToSvg(model: LayoutModel, library: Library, opts: RenderOp
     parts.push(`<text x="${x}" y="${y}" font-size="6" data-id="${l.id}" data-layer="TEXT">${esc(l.text)}</text>`);
   }
 
+  return parts.join("");
+}
+
+export function renderToSvg(model: LayoutModel, library: Library, opts: RenderOptions = {}): string {
+  const { width_mm: W, height_mm: H } = model.plate;
+  const scale = opts.unitsPerMm ?? 1;
   const wPx = W * scale;
   const hPx = H * scale;
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${wPx}" height="${hPx}" viewBox="0 0 ${W} ${H}">`,
-    ...parts,
+    renderPlateBody(model, library),
     `</svg>`,
   ].join("");
 }
