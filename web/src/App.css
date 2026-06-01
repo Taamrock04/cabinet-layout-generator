@@ -48,10 +48,15 @@
 }
 .lib-item:hover { background: #eef3ff; border-color: #2f6fed; }
 
-/* canvas stage */
-.stage { grid-area: stage; overflow: auto; padding: 24px; background: #e9ecef; display: flex; justify-content: center; align-items: flex-start; }
-.sheet { background: #fff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.18); }
-.sheet canvas { display: block; }
+/* canvas stage — Fabric fills it; zoom/pan happen inside the canvas */
+.stage { grid-area: stage; overflow: hidden; background: #e9ecef; }
+.sheet { width: 100%; height: 100%; }
+.canvas-wrap { width: 100%; height: 100%; }
+.canvas-wrap canvas { display: block; }
+
+/* zoom controls */
+.toolbar button.icon { padding: 4px 9px; font-size: 15px; line-height: 1; }
+.zoompct { font-size: 12px; color: #444; min-width: 40px; text-align: center; }
 
 /* properties + validation panel */
 .panel { grid-area: panel; border-left: 1px solid #ddd; padding: 12px 14px; background: #fff; overflow: auto; }

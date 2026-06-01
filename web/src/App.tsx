@@ -8,7 +8,7 @@ import {
   updateElement, updateDuct, type EntityKind,
 } from "./model/edit";
 import { useHistory } from "./editor/useHistory";
-import FabricStage, { type Selection } from "./editor/FabricStage";
+import FabricStage, { type Selection, clampZoom } from "./editor/FabricStage";
 import { exportDxf, type DxfScale } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
 import type { Paper } from "./render/page";
@@ -20,12 +20,12 @@ type Status =
   | { kind: "done"; label: string }
   | { kind: "error"; message: string };
 
-const SCALE = 0.45; // px per mm on the canvas
-
 export default function App() {
   const { model, set, undo, redo, canUndo, canRedo } = useHistory(buildDemo());
   const [selection, setSelection] = useState<Selection | null>(null);
   const [snapStep, setSnapStep] = useState(0); // 0 = off, 1 = 1mm grid
+  const [zoom, setZoom] = useState(0.45); // px per mm (fit-to-view overrides on load)
+  const [fitNonce, setFitNonce] = useState(0);
   const [dxfScale, setDxfScale] = useState<DxfScale>("1:100");
   const [paper, setPaper] = useState<Paper>("A3");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -89,6 +89,12 @@ export default function App() {
             </label>
           </span>
           <span className="group">
+            <button type="button" className="icon" title="Zoom out" onClick={() => setZoom((z) => clampZoom(z / 1.25))}>−</button>
+            <span className="zoompct" title="Current zoom">{Math.round(zoom * 100)}%</span>
+            <button type="button" className="icon" title="Zoom in" onClick={() => setZoom((z) => clampZoom(z * 1.25))}>+</button>
+            <button type="button" className="ghost" title="Fit to view" onClick={() => setFitNonce((n) => n + 1)}>Fit</button>
+          </span>
+          <span className="group">
             <label className="field">DXF
               <select value={dxfScale} onChange={(e) => setDxfScale(e.target.value as DxfScale)}>
                 <option value="1:1">1:1</option><option value="1:100">1:100</option>
@@ -135,10 +141,12 @@ export default function App() {
       <main className="stage">
         <div className="sheet">
           <FabricStage
-            model={model} library={SEED_LIBRARY} scale={SCALE} snapStep={snapStep}
+            model={model} library={SEED_LIBRARY} zoom={zoom} snapStep={snapStep}
+            fitNonce={fitNonce}
             selectedId={selection?.id ?? null}
             onSelect={setSelection}
             onMove={(kind: EntityKind, id, x, y) => set(moveEntity(model, kind, id, x, y))}
+            onZoomChange={setZoom}
           />
         </div>
       </main>
