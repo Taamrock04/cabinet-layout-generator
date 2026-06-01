@@ -36,6 +36,12 @@ LAYERS = {
 TEXT_STYLE = "ARIAL"
 
 
+def _num(v: object) -> str:
+    """Format a dimension without a trailing '.0' (e.g. 40.0 -> '40')."""
+    f = float(v)
+    return str(int(f)) if f.is_integer() else str(f)
+
+
 # --------------------------- geometry helpers ---------------------------
 
 def rotated_footprint(w: float, h: float, rot_deg: float) -> tuple[float, float]:
@@ -154,7 +160,7 @@ class DxfAssembler:
             # rect / symbol: draw the footprint rectangle + tag
             self._rect(x, y_top, fw, fh, "EQUIP")
             if el.get("tag"):
-                self._text(el["tag"], x + fw / 2, y_top + fh / 2, 6)
+                self._text(el["tag"], x + fw / 2, y_top + fh / 2, 10)
 
     def _place_group(self, g: dict[str, Any]) -> None:
         item = self.library.get(g["lib_key"])
@@ -174,9 +180,10 @@ class DxfAssembler:
         w = float(d["length_mm"]) if horizontal else float(d["width_mm"])
         h = float(d["width_mm"]) if horizontal else float(d["length_mm"])
         self._rect(float(d["x_mm"]), float(d["y_mm"]), w, h, "DUCT")
-        label = f"Wire duct {d['width_mm']}x{d['label_h_mm']}"
+        # label matches the as-builts: "WIRE DUCT 40X60 MM"; height ~60% of thickness
+        label = f"WIRE DUCT {_num(d['width_mm'])}X{_num(d['label_h_mm'])} MM"
         self._text(label, float(d["x_mm"]) + w / 2, float(d["y_mm"]) + h / 2,
-                   5, rot_deg=0 if horizontal else 90)
+                   float(d["width_mm"]) * 0.6, rot_deg=0 if horizontal else 90)
 
     def _place_label(self, l: dict[str, Any]) -> None:
         kind, ref = l["anchor"].split(":")
@@ -189,7 +196,7 @@ class DxfAssembler:
             return
         x = float(host["x_mm"]) + float(l.get("dx_mm", 0))
         y = float(host["y_mm"]) + float(l.get("dy_mm", 0))
-        self._text(l["text"], x, y, 6, rot_deg=float(l.get("rot_deg", 0)))
+        self._text(l["text"], x, y, 10, rot_deg=float(l.get("rot_deg", 0)))
 
     def build(self) -> ezdxf.document.Drawing:
         p = self.model["plate"]

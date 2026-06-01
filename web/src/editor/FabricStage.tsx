@@ -219,6 +219,14 @@ export default function FabricStage(props: Props) {
         left: d.x_mm, top: d.y_mm, width: w, height: h,
         fill: "#eef3ff", stroke: "#3559b3", strokeWidth: 0.4, ...EQUIP_OPTS, ...alert(d.id),
       })));
+      // label on the canvas too, matching the export: "WIRE DUCT 40X60 MM"
+      canvas.add(new Textbox(`WIRE DUCT ${d.width_mm}X${d.label_h_mm} MM`, {
+        left: d.x_mm + w / 2, top: d.y_mm + h / 2,
+        originX: "center", originY: "center",
+        width: horizontal ? w : h, fontSize: d.width_mm * 0.6,
+        fontFamily: "Arial", textAlign: "center", angle: horizontal ? 0 : 90,
+        selectable: false, evented: false,
+      }));
     }
 
     for (const g of model.groups) {
@@ -241,8 +249,8 @@ export default function FabricStage(props: Props) {
       })));
       if (el.tag) {
         canvas.add(new Textbox(el.tag, {
-          left: el.x_mm, top: el.y_mm + f.h / 2 - 3, width: f.w,
-          fontSize: 6, fontFamily: "Arial", textAlign: "center", selectable: false, evented: false,
+          left: el.x_mm, top: el.y_mm + f.h / 2 - 5, width: f.w,
+          fontSize: 10, fontFamily: "Arial", textAlign: "center", selectable: false, evented: false,
         }));
       }
     }

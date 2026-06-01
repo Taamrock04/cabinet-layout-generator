@@ -40,7 +40,7 @@ function renderElement(el: Element, library: Library): string {
   const cx = el.x_mm + f.w / 2;
   const cy = el.y_mm + f.h / 2;
   const body = `<rect x="${el.x_mm}" y="${el.y_mm}" width="${f.w}" height="${f.h}" fill="#fff" stroke="#222" stroke-width="0.4"/>`;
-  const label = el.tag ? tagText(el.tag, cx, cy, 0) : "";
+  const label = el.tag ? tagText(el.tag, cx, cy, 0, 10) : "";
   return `<g data-id="${el.id}" data-layer="EQUIP">${body}${label}</g>`;
 }
 
@@ -67,7 +67,8 @@ export function renderPlateBody(model: LayoutModel, library: Library): string {
     const cy = d.y_mm + h / 2;
     parts.push(`<g data-id="${d.id}" data-layer="DUCT">`);
     parts.push(`<rect x="${d.x_mm}" y="${d.y_mm}" width="${w}" height="${h}" fill="#eef3ff" stroke="#3559b3" stroke-width="0.4"/>`);
-    parts.push(tagText(`Wire duct ${d.width_mm}x${d.label_h_mm}`, cx, cy, horizontal ? 0 : 90, 5));
+    // label matches the as-builts: "WIRE DUCT 40X60 MM"; height ~60% of the duct thickness
+    parts.push(tagText(`WIRE DUCT ${d.width_mm}X${d.label_h_mm} MM`, cx, cy, horizontal ? 0 : 90, d.width_mm * 0.6));
     parts.push(`</g>`);
   }
 
@@ -100,7 +101,7 @@ export function renderPlateBody(model: LayoutModel, library: Library): string {
     if (!host) continue;
     const x = host.x_mm + l.dx_mm;
     const y = host.y_mm + l.dy_mm;
-    parts.push(`<text x="${x}" y="${y}" font-size="6" data-id="${l.id}" data-layer="TEXT">${esc(l.text)}</text>`);
+    parts.push(`<text x="${x}" y="${y}" font-size="10" data-id="${l.id}" data-layer="TEXT">${esc(l.text)}</text>`);
   }
 
   return parts.join("");
@@ -112,7 +113,7 @@ export function renderToSvg(model: LayoutModel, library: Library, opts: RenderOp
   const wPx = W * scale;
   const hPx = H * scale;
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${wPx}" height="${hPx}" viewBox="0 0 ${W} ${H}">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${wPx}" height="${hPx}" viewBox="0 0 ${W} ${H}" font-family="Arial, Helvetica, sans-serif">`,
     renderPlateBody(model, library),
     `</svg>`,
   ].join("");
