@@ -7,6 +7,7 @@ and restrict CORS to the frontend domain (CLAUDE.md §5, SKILL.md §7 invariant 
 from __future__ import annotations
 
 import io
+import os
 import re
 from typing import Any
 
@@ -21,13 +22,15 @@ import dxf_upload
 
 app = FastAPI(title="Cabinet Layout — ezdxf service", version="0.1.0")
 
-# Phase 1: permissive for local dev. Phase 2: lock to the frontend domain.
+# Allowed origins come from ALLOWED_ORIGINS (comma-separated) so the deployed
+# frontend domain can be added without a code change; defaults to local dev.
+_origins = os.environ.get(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173,http://127.0.0.1:5173",
+)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=[o.strip() for o in _origins.split(",") if o.strip()],
     allow_methods=["*"],
     allow_headers=["*"],
 )

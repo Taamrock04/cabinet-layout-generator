@@ -1,0 +1,15 @@
+# Render deployment for the ezdxf service (free web service).
+# In Render: New + → Blueprint → pick this repo, or create a Web Service manually
+# with Root Directory = service and the build/start commands below.
+services:
+  - type: web
+    name: cabinet-ezdxf
+    runtime: python
+    rootDir: service
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app:app --host 0.0.0.0 --port $PORT
+    envVars:
+      # comma-separated; set to your Vercel URL, e.g. https://your-app.vercel.app
+      - key: ALLOWED_ORIGINS
+        sync: false
