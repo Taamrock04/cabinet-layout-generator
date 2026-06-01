@@ -69,6 +69,36 @@ export function placedBoxes(model: LayoutModel, library: Library): PlacedBox[] {
   return out;
 }
 
+/** Gap between two non-overlapping axis-aligned boxes (0 if they overlap/touch). */
+function aabbGap(a: Box, b: Box): number {
+  const dx = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w), 0);
+  const dy = Math.max(b.y - (a.y + a.h), a.y - (b.y + b.h), 0);
+  return Math.hypot(dx, dy);
+}
+
+/**
+ * Elements whose nearest duct is closer than their required clearance (but not
+ * overlapping — that's findOverlaps). "Too tight" = no room to wire. (brief §7 Req6)
+ */
+export function tightClearances(model: LayoutModel, library: Library): Set<string> {
+  const boxes = placedBoxes(model, library);
+  const ducts = boxes.filter((b) => b.kind === "duct").map((b) => b.box);
+  const out = new Set<string>();
+  if (ducts.length === 0) return out;
+
+  for (const el of model.elements) {
+    const eb = boxes.find((b) => b.kind === "element" && b.id === el.id);
+    if (!eb) continue;
+    let minGap = Infinity;
+    for (const d of ducts) {
+      const g = aabbGap(eb.box, d);
+      if (g > 0) minGap = Math.min(minGap, g);
+    }
+    if (minGap !== Infinity && minGap < el.clearance_to_duct_mm) out.add(el.id);
+  }
+  return out;
+}
+
 export function findOverlaps(model: LayoutModel, library: Library): OverlapResult {
   const boxes = placedBoxes(model, library);
   const pairs: OverlapPair[] = [];

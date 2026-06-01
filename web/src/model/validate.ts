@@ -8,7 +8,7 @@
 import type { LayoutModel, Library } from "./types";
 import { placedBox, boxWithinPlate } from "./geometry";
 import { libItemSize } from "./resolve";
-import { findOverlaps } from "./overlap";
+import { findOverlaps, tightClearances } from "./overlap";
 
 export type IssueLevel = "error" | "warning";
 
@@ -65,11 +65,6 @@ export function validate(model: LayoutModel, library: Library): Issue[] {
     if (size.w <= 0 || size.h <= 0) {
       add("error", "BAD_SIZE", `element "${el.id}" has non-positive size`, el.id);
     }
-    if (el.clearance_to_duct_mm < model.defaults.clearance_equipment_to_duct_mm) {
-      add("warning", "CLEARANCE_TIGHT",
-        `element "${el.id}" duct clearance ${el.clearance_to_duct_mm}mm < default ${model.defaults.clearance_equipment_to_duct_mm}mm`,
-        el.id);
-    }
     const box = placedBox({ x: el.x_mm, y: el.y_mm }, size, el.rot_deg);
     if (!boxWithinPlate(box, plateSize)) {
       add("warning", "OFF_PLATE", `element "${el.id}" extends beyond the plate (warn-but-allow)`, el.id);
@@ -108,6 +103,13 @@ export function validate(model: LayoutModel, library: Library): Issue[] {
   // --- overlaps: nothing on the plate should overlap (warn-but-allow) ---
   for (const p of findOverlaps(model, library).pairs) {
     add("warning", "OVERLAP", `"${p.a.label}" overlaps "${p.b.label}"`, p.a.id);
+  }
+
+  // --- clearance: element too close to a duct to wire (warn-but-allow) ---
+  for (const id of tightClearances(model, library)) {
+    const el = model.elements.find((e) => e.id === id);
+    add("warning", "CLEARANCE_TIGHT",
+      `"${el?.tag || library[el?.lib_key ?? ""]?.name || id}" is closer than ${el?.clearance_to_duct_mm}mm to a duct`, id);
   }
 
   return issues;

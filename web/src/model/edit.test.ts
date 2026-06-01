@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { addElement, moveEntity, setRotation, deleteEntity, updateElement, snap } from "./edit";
+import { addElement, moveEntity, setRotation, deleteEntity, updateElement, snap,
+  stepTag, addSet, explodeGroup, addLabel } from "./edit";
 import { newModel } from "./factory";
 import { SEED_LIBRARY } from "./library";
 
@@ -54,5 +55,41 @@ describe("move / rotate / update / delete", () => {
     const m2 = deleteEntity(model, "element", id);
     expect(m2.elements).toHaveLength(0);
     expect(m2.labels).toHaveLength(0);
+  });
+});
+
+describe("stepTag", () => {
+  it("steps the numeric suffix keeping prefix + zero-pad", () => {
+    expect(stepTag("B101", 0)).toBe("B101");
+    expect(stepTag("B101", 1)).toBe("B102");
+    expect(stepTag("B099", 2)).toBe("B101");
+    expect(stepTag("R001", 9)).toBe("R010");
+    expect(stepTag("X", 3)).toBe("X3");
+  });
+});
+
+describe("addSet / explodeGroup", () => {
+  it("adds a set group then explodes it into auto-tagged elements", () => {
+    const m0 = newModel("T");
+    const { model, id } = addSet(m0, "term_degson_2c_2_5", 4, { tag_start: "B101", internal_gap_mm: 0.1 });
+    expect(model.groups).toHaveLength(1);
+
+    const ex = explodeGroup(model, id, SEED_LIBRARY);
+    expect(ex.groups).toHaveLength(0);
+    expect(ex.elements).toHaveLength(4);
+    expect(ex.elements.map((e) => e.tag)).toEqual(["B101", "B102", "B103", "B104"]);
+    // laid left→right: each after the previous (width 5.2 + gap 0.1)
+    expect(ex.elements[1].x_mm).toBeCloseTo(ex.elements[0].x_mm + 5.2 + 0.1);
+  });
+});
+
+describe("addLabel + moveEntity(label)", () => {
+  it("creates a label and a move updates its offset from the anchor", () => {
+    const { model, id } = addElement(newModel("T"), "mcp_2p", SEED_LIBRARY, 100, 200);
+    const { model: m2, id: lid } = addLabel(model, "element", id);
+    expect(m2.labels[0]).toMatchObject({ id: lid, anchor: `element:${id}` });
+    // drop the label at absolute (120, 190) → offset (20, -10) from the element at (100,200)
+    const m3 = moveEntity(m2, "label", lid, 120, 190);
+    expect(m3.labels[0]).toMatchObject({ dx_mm: 20, dy_mm: -10 });
   });
 });

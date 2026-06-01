@@ -25,15 +25,27 @@ describe("validate", () => {
     expect(hasErrors(issues)).toBe(true);
   });
 
-  it("warns (not errors) on tight clearance and off-plate — warn-but-allow", () => {
+  it("warns (not errors) on geometrically-tight duct clearance — warn-but-allow", () => {
+    // left side duct occupies x 0..60; place a relay 1mm from its edge (gap 1 < 3 required)
+    const m = baseModel();
+    m.elements.push({
+      id: "e1", lib_key: "relay_24vdc_2c", tag: "RL1",
+      x_mm: 61, y_mm: 300, rot_deg: 0,
+      gap_before_mm: 0.1, clearance_to_duct_mm: 3, group_id: null, locked: false,
+    });
+    const issues = validate(m, SEED_LIBRARY);
+    expect(issues.some((i) => i.code === "CLEARANCE_TIGHT" && i.level === "warning")).toBe(true);
+    expect(hasErrors(issues)).toBe(false);
+  });
+
+  it("warns (not errors) when an element extends off the plate — warn-but-allow", () => {
     const m = baseModel();
     m.elements.push({
       id: "e1", lib_key: "relay_24vdc_2c", tag: "RL1",
       x_mm: m.plate.width_mm - 2, y_mm: 100, rot_deg: 0,
-      gap_before_mm: 0.1, clearance_to_duct_mm: 1, group_id: null, locked: false,
+      gap_before_mm: 0.1, clearance_to_duct_mm: 3, group_id: null, locked: false,
     });
     const issues = validate(m, SEED_LIBRARY);
-    expect(issues.some((i) => i.code === "CLEARANCE_TIGHT" && i.level === "warning")).toBe(true);
     expect(issues.some((i) => i.code === "OFF_PLATE" && i.level === "warning")).toBe(true);
     expect(hasErrors(issues)).toBe(false);
   });
