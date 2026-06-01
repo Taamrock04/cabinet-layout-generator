@@ -1,0 +1,29 @@
+# dependencies / virtualenvs (never sync or commit)
+node_modules/
+**/node_modules/
+.venv/
+**/.venv/
+__pycache__/
+*.pyc
+
+# build output
+dist/
+build/
+*.tsbuildinfo
+
+# env / secrets
+.env
+.env.*
+!.env.example
+
+# editor / OS
+.DS_Store
+.vscode/
+.idea/
+
+# spike + service scratch artifacts
+spike/out_*.dxf
+spike/out_*.png
+spike/out_*.svg
+service/out_*
+service/_blocks/
