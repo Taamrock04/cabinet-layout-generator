@@ -3,10 +3,11 @@ import { buildDemo } from "./demo";
 import { SEED_LIBRARY, BANDS } from "./model/library";
 import type { Library, DxfLibItem } from "./model/types";
 import { validate } from "./model/validate";
-import { findOverlaps } from "./model/overlap";
+import { findOverlaps, tightClearances } from "./model/overlap";
 import {
   addElement, moveEntity, setRotation, deleteEntity,
-  updateElement, updateDuct, type EntityKind,
+  updateElement, updateDuct, addSet, explodeGroup, addLabel, updateLabel,
+  type EntityKind,
 } from "./model/edit";
 import { useHistory } from "./editor/useHistory";
 import FabricStage, { type Selection, clampZoom } from "./editor/FabricStage";
@@ -43,10 +44,28 @@ export default function App() {
 
   const issues = useMemo(() => validate(model, library), [model, library]);
   const overlapIds = useMemo(() => findOverlaps(model, library).ids, [model, library]);
+  const tightIds = useMemo(() => tightClearances(model, library), [model, library]);
 
   const selEl = selection?.kind === "element" ? model.elements.find((e) => e.id === selection.id) ?? null : null;
   const selDuct = selection?.kind === "duct" ? model.ducts.find((d) => d.id === selection.id) ?? null : null;
   const selGroup = selection?.kind === "group" ? model.groups.find((g) => g.id === selection.id) ?? null : null;
+  const selLabel = selection?.kind === "label" ? model.labels.find((l) => l.id === selection.id) ?? null : null;
+
+  // Add-Set form state
+  const [setLibKey, setSetLibKey] = useState("term_degson_2c_2_5");
+  const [setCount, setSetCount] = useState(12);
+  const [setTagStart, setSetTagStart] = useState("B101");
+
+  function addPartLabel(kind: "element" | "group", refId: string) {
+    const { model: m2, id } = addLabel(model, kind, refId);
+    set(m2);
+    setSelection({ id, kind: "label" });
+  }
+  function doAddSet() {
+    const { model: m2, id } = addSet(model, setLibKey, setCount, { tag_start: setTagStart || null });
+    set(m2);
+    setSelection({ id, kind: "group" });
+  }
 
   function deleteSelected() {
     if (!selection) return;
@@ -192,6 +211,18 @@ export default function App() {
             </div>
           );
         })}
+        <div className="addset">
+          <div className="band-name">Add a set</div>
+          <select value={setLibKey} onChange={(e) => setSetLibKey(e.target.value)}>
+            {Object.values(library).map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name}</option>)}
+          </select>
+          <div className="addset-row">
+            <label>× <input type="number" min={1} value={setCount} onChange={(e) => setSetCount(Math.max(1, parseInt(e.target.value) || 1))} /></label>
+            <label>tag <input type="text" value={setTagStart} onChange={(e) => setSetTagStart(e.target.value)} placeholder="B101" /></label>
+          </div>
+          <button type="button" className="lib-item" onClick={doAddSet}>Add set ×{setCount}</button>
+        </div>
+
         <p className="muted small">* size is an unconfirmed estimate (replace via datasheet/DXF upload).</p>
       </aside>
 
@@ -199,7 +230,7 @@ export default function App() {
         <div className="sheet">
           <FabricStage
             model={model} library={library} zoom={zoom} snapStep={snapStep}
-            fitNonce={fitNonce} overlapIds={overlapIds}
+            fitNonce={fitNonce} overlapIds={overlapIds} tightIds={tightIds}
             selectedId={selection?.id ?? null}
             onSelect={setSelection}
             onMove={(kind: EntityKind, id, x, y) => set(moveEntity(model, kind, id, x, y))}
@@ -219,7 +250,10 @@ export default function App() {
             <Num label="Gap before (mm)" value={selEl.gap_before_mm} step={0.1} onChange={(v) => set(updateElement(model, selEl.id, { gap_before_mm: v }))} />
             <Num label="Duct clearance (mm)" value={selEl.clearance_to_duct_mm} step={0.5} onChange={(v) => set(updateElement(model, selEl.id, { clearance_to_duct_mm: v }))} />
             <Row label="Rotation"><span className="ro">{selEl.rot_deg}°</span> <button type="button" onClick={rotateSelected}>+90°</button></Row>
-            <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
+            <div className="panel-actions">
+              <button type="button" onClick={() => addPartLabel("element", selEl.id)}>+ Label</button>
+              <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
+            </div>
           </>
         ) : selDuct ? (
           <>
@@ -237,7 +271,21 @@ export default function App() {
             <Row label="Library"><span className="ro">{library[selGroup.lib_key]?.name ?? selGroup.lib_key}</span></Row>
             <Num label="X (mm)" value={selGroup.x_mm} onChange={(v) => set({ ...model, groups: model.groups.map((g) => g.id === selGroup.id ? { ...g, x_mm: v } : g) })} />
             <Num label="Y (mm)" value={selGroup.y_mm} onChange={(v) => set({ ...model, groups: model.groups.map((g) => g.id === selGroup.id ? { ...g, y_mm: v } : g) })} />
+            <Num label="Count" value={selGroup.count} onChange={(v) => set({ ...model, groups: model.groups.map((g) => g.id === selGroup.id ? { ...g, count: Math.max(1, Math.floor(v)) } : g) })} />
+            <Num label="Internal gap (mm)" value={selGroup.internal_gap_mm} step={0.1} onChange={(v) => set({ ...model, groups: model.groups.map((g) => g.id === selGroup.id ? { ...g, internal_gap_mm: v } : g) })} />
             <Row label="Rotation"><span className="ro">{selGroup.rot_deg}°</span> <button type="button" onClick={rotateSelected}>+90°</button></Row>
+            <div className="panel-actions">
+              <button type="button" onClick={() => addPartLabel("group", selGroup.id)}>+ Label</button>
+              <button type="button" onClick={() => { set(explodeGroup(model, selGroup.id, library)); setSelection(null); }}>Explode</button>
+              <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
+            </div>
+          </>
+        ) : selLabel ? (
+          <>
+            <h3>Label</h3>
+            <Field label="Text" value={selLabel.text} onChange={(v) => set(updateLabel(model, selLabel.id, { text: v }))} />
+            <Row label="Anchored to"><span className="ro">{selLabel.anchor}</span></Row>
+            <p className="muted small">Drag the label on the plate to reposition it relative to its part.</p>
             <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
           </>
         ) : (

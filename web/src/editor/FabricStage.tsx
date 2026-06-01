@@ -16,7 +16,7 @@ import { Canvas, Rect, Textbox, FabricText } from "fabric";
 import type { LayoutModel, Library } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
-import { snap, type EntityKind } from "../model/edit";
+import { snap, anchorHost, type EntityKind } from "../model/edit";
 
 export interface Selection {
   id: string;
@@ -37,6 +37,8 @@ interface Props {
   fitNonce: number;
   /** Ids of entities that overlap something — drawn with a red alert style. */
   overlapIds: Set<string>;
+  /** Ids of elements too close to a duct — drawn with an orange caution style. */
+  tightIds: Set<string>;
   onSelect: (sel: Selection | null) => void;
   onMove: (kind: EntityKind, id: string, x_mm: number, y_mm: number) => void;
   onZoomChange: (zoom: number) => void;
@@ -65,7 +67,7 @@ function applyZoom(canvas: Canvas, z: number, ax: number, ay: number) {
 }
 
 export default function FabricStage(props: Props) {
-  const { model, library, zoom, selectedId, fitNonce, overlapIds } = props;
+  const { model, library, zoom, selectedId, fitNonce, overlapIds, tightIds } = props;
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const elRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRef = useRef<Canvas | null>(null);
@@ -208,8 +210,11 @@ export default function FabricStage(props: Props) {
     }));
 
     const tag = (meta: Meta, o: Rect) => { (o as unknown as { data: Meta }).data = meta; return o; };
-    // red alert style for anything currently overlapping something else
-    const alert = (id: string) => (overlapIds.has(id) ? { stroke: "#e00000", strokeWidth: 1.2, fill: "#fde2e2" } : {});
+    // alert styles: red = overlapping something; orange = too close to a duct
+    const styleFor = (id: string) =>
+      overlapIds.has(id) ? { stroke: "#e00000", strokeWidth: 1.2, fill: "#fde2e2" }
+        : tightIds.has(id) ? { stroke: "#e08600", strokeWidth: 1.0, fill: "#fff3e0" }
+          : {};
 
     for (const d of model.ducts) {
       const horizontal = d.rot_deg % 180 === 0;
@@ -217,7 +222,7 @@ export default function FabricStage(props: Props) {
       const h = horizontal ? d.width_mm : d.length_mm;
       canvas.add(tag({ id: d.id, kind: "duct" }, new Rect({
         left: d.x_mm, top: d.y_mm, width: w, height: h,
-        fill: "#eef3ff", stroke: "#3559b3", strokeWidth: 0.4, ...EQUIP_OPTS, ...alert(d.id),
+        fill: "#eef3ff", stroke: "#3559b3", strokeWidth: 0.4, ...EQUIP_OPTS, ...styleFor(d.id),
       })));
       // label on the canvas too, matching the export: "WIRE DUCT 40X60 MM"
       canvas.add(new Textbox(`WIRE DUCT ${d.width_mm}X${d.label_h_mm} MM`, {
@@ -236,7 +241,7 @@ export default function FabricStage(props: Props) {
       const total = g.count * f.w + (g.count - 1) * g.internal_gap_mm;
       canvas.add(tag({ id: g.id, kind: "group" }, new Rect({
         left: g.x_mm, top: g.y_mm, width: total, height: f.h,
-        fill: "#ffffff", stroke: "#222", strokeWidth: 0.4, ...EQUIP_OPTS, ...alert(g.id),
+        fill: "#ffffff", stroke: "#222", strokeWidth: 0.4, ...EQUIP_OPTS, ...styleFor(g.id),
       })));
     }
 
@@ -245,7 +250,7 @@ export default function FabricStage(props: Props) {
       const f = item ? rotatedFootprint(libItemSize(item), el.rot_deg) : { w: 10, h: 10 };
       canvas.add(tag({ id: el.id, kind: "element" }, new Rect({
         left: el.x_mm, top: el.y_mm, width: f.w, height: f.h,
-        fill: item ? "#ffffff" : "#fdecec", stroke: item ? "#222" : "#c00", strokeWidth: 0.4, ...EQUIP_OPTS, ...alert(el.id),
+        fill: item ? "#ffffff" : "#fdecec", stroke: item ? "#222" : "#c00", strokeWidth: 0.4, ...EQUIP_OPTS, ...styleFor(el.id),
       })));
       if (el.tag) {
         const tagH = 10;
@@ -262,12 +267,26 @@ export default function FabricStage(props: Props) {
       }
     }
 
+    // stopper labels — selectable + draggable (drop -> offset from anchor)
+    for (const l of model.labels) {
+      const host = anchorHost(model, l.anchor);
+      if (!host) continue;
+      const t = new FabricText(l.text, {
+        left: host.x_mm + l.dx_mm, top: host.y_mm + l.dy_mm,
+        fontSize: 10, fontFamily: "Arial", fill: "#1a7f37", angle: l.rot_deg,
+        originX: "left", originY: "top",
+        hasControls: false, lockScalingX: true, lockScalingY: true, lockRotation: true,
+        borderColor: "#2f6fed",
+      });
+      canvas.add(tag({ id: l.id, kind: "label" }, t as unknown as Rect));
+    }
+
     if (selectedId) {
       const obj = canvas.getObjects().find((o) => (o as unknown as { data?: Meta }).data?.id === selectedId);
       if (obj) canvas.setActiveObject(obj);
     }
     canvas.requestRenderAll();
-  }, [model, library, selectedId, overlapIds]);
+  }, [model, library, selectedId, overlapIds, tightIds]);
 
   return (
     <div ref={wrapRef} className="canvas-wrap">

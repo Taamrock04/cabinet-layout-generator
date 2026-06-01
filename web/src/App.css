@@ -103,7 +103,17 @@
 .prow input[type="text"], .prow input[type="number"] { width: 110px; font-size: 12px; padding: 3px 5px; }
 .pval .ro { color: #111; }
 .pval button { font-size: 11px; padding: 2px 7px; border: 1px solid #ccc; background: #f4f4f4; border-radius: 4px; cursor: pointer; }
-.panel button.danger { margin-top: 12px; font-size: 12px; padding: 6px 12px; border: 1px solid #c00; background: #fff; color: #c00; border-radius: 5px; cursor: pointer; }
+.panel button.danger { font-size: 12px; padding: 6px 12px; border: 1px solid #c00; background: #fff; color: #c00; border-radius: 5px; cursor: pointer; }
+.panel-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+.panel-actions button { font-size: 12px; padding: 6px 12px; border: 1px solid #2f6fed; background: #fff; color: #2f6fed; border-radius: 5px; cursor: pointer; }
+.panel-actions button.danger { border-color: #c00; color: #c00; }
+
+.addset { margin-top: 14px; padding-top: 12px; border-top: 1px solid #eee; }
+.addset select { width: 100%; font-size: 12px; padding: 4px; margin-bottom: 6px; }
+.addset-row { display: flex; gap: 8px; margin-bottom: 6px; }
+.addset-row label { font-size: 11px; color: #555; display: flex; align-items: center; gap: 4px; }
+.addset-row input { width: 56px; font-size: 12px; padding: 3px 4px; }
+.addset-row input[type="text"] { width: 64px; }
 
 .ok { color: #1a7f37; font-size: 13px; }
 .issues { list-style: none; margin: 0; padding: 0; font-size: 12px; }
