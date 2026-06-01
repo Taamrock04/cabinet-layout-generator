@@ -1,0 +1,15 @@
+:root {
+  font-family: Arial, Helvetica, sans-serif;
+  color-scheme: light;
+}
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  background: #e9ecef;
+}
+
+code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 11px;
+}
