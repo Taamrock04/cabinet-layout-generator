@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { addElement, moveEntity, setRotation, deleteEntity, updateElement, snap,
-  stepTag, addSet, explodeGroup, addLabel } from "./edit";
+  stepTag, addSet, explodeGroup, addLabel, snapDuctThickness, ductDimsFromBox } from "./edit";
 import { newModel } from "./factory";
 import { SEED_LIBRARY } from "./library";
 
@@ -80,6 +80,20 @@ describe("addSet / explodeGroup", () => {
     expect(ex.elements.map((e) => e.tag)).toEqual(["B101", "B102", "B103", "B104"]);
     // laid left→right: each after the previous (width 5.2 + gap 0.1)
     expect(ex.elements[1].x_mm).toBeCloseTo(ex.elements[0].x_mm + 5.2 + 0.1);
+  });
+});
+
+describe("duct resize", () => {
+  it("snaps thickness to the nearest standard face", () => {
+    expect(snapDuctThickness(33)).toBe(30);
+    expect(snapDuctThickness(44)).toBe(40);
+    expect(snapDuctThickness(58)).toBe(60);
+  });
+  it("maps a resized box to length (free) + snapped thickness by orientation", () => {
+    // horizontal duct: boxW = length, boxH = thickness
+    expect(ductDimsFromBox(0, 712.3, 42)).toEqual({ length_mm: 712.3, width_mm: 40 });
+    // vertical duct: boxW = thickness, boxH = length
+    expect(ductDimsFromBox(90, 58, 1490.7)).toEqual({ length_mm: 1490.7, width_mm: 60 });
   });
 });
 

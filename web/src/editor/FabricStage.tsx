@@ -12,7 +12,7 @@
  *  - zoom buttons/Fit  → driven by the `zoom` / `fitNonce` props from App
  */
 import { useEffect, useRef } from "react";
-import { Canvas, Rect, Textbox, FabricText } from "fabric";
+import { Canvas, Rect, Textbox, FabricText, loadSVGFromString, util, type FabricObject } from "fabric";
 import type { LayoutModel, Library } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
@@ -42,6 +42,10 @@ interface Props {
   onSelect: (sel: Selection | null) => void;
   onMove: (kind: EntityKind, id: string, x_mm: number, y_mm: number) => void;
   onZoomChange: (zoom: number) => void;
+  /** Duct resized by dragging an edge: new top-left + new box size (mm). */
+  onResizeDuct: (id: string, x_mm: number, y_mm: number, boxW: number, boxH: number) => void;
+  /** A library part dropped onto the canvas at (x_mm, y_mm). */
+  onDropPart: (libKey: string, x_mm: number, y_mm: number) => void;
 }
 
 type Meta = { id: string; kind: EntityKind };
@@ -74,6 +78,8 @@ export default function FabricStage(props: Props) {
   // latest values for event handlers without re-binding
   const ref = useRef(props);
   ref.current = props;
+  // bumped each rebuild so stale async SVG loads can be discarded
+  const genRef = useRef(0);
 
   function fitToView() {
     const canvas = canvasRef.current;
@@ -126,9 +132,16 @@ export default function FabricStage(props: Props) {
       }
     });
     canvas.on("object:modified", (e) => {
-      const meta = (e.target as unknown as { data?: Meta })?.data;
-      if (meta && e.target) {
-        ref.current.onMove(meta.kind, meta.id, +(e.target.left ?? 0).toFixed(2), +(e.target.top ?? 0).toFixed(2));
+      const t = e.target;
+      const meta = (t as unknown as { data?: Meta })?.data;
+      if (!meta || !t) return;
+      const scaled = Math.abs((t.scaleX ?? 1) - 1) > 1e-4 || Math.abs((t.scaleY ?? 1) - 1) > 1e-4;
+      if (meta.kind === "duct" && scaled) {
+        const boxW = (t.width ?? 0) * (t.scaleX ?? 1);
+        const boxH = (t.height ?? 0) * (t.scaleY ?? 1);
+        ref.current.onResizeDuct(meta.id, +(t.left ?? 0).toFixed(2), +(t.top ?? 0).toFixed(2), boxW, boxH);
+      } else {
+        ref.current.onMove(meta.kind, meta.id, +(t.left ?? 0).toFixed(2), +(t.top ?? 0).toFixed(2));
       }
     });
     const emit = () => {
@@ -200,6 +213,7 @@ export default function FabricStage(props: Props) {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const gen = ++genRef.current;
     canvas.remove(...canvas.getObjects());
 
     const W = model.plate.width_mm;
@@ -220,10 +234,16 @@ export default function FabricStage(props: Props) {
       const horizontal = d.rot_deg % 180 === 0;
       const w = horizontal ? d.length_mm : d.width_mm;
       const h = horizontal ? d.width_mm : d.length_mm;
-      canvas.add(tag({ id: d.id, kind: "duct" }, new Rect({
+      const ductRect = new Rect({
         left: d.x_mm, top: d.y_mm, width: w, height: h,
-        fill: "#eef3ff", stroke: "#3559b3", strokeWidth: 0.4, ...EQUIP_OPTS, ...styleFor(d.id),
-      })));
+        fill: "#eef3ff", stroke: "#3559b3", strokeWidth: 0.4,
+        hasControls: true, lockRotation: true, lockScalingFlip: true,
+        borderColor: "#3559b3", cornerColor: "#3559b3", cornerSize: 9, transparentCorners: false,
+        ...styleFor(d.id),
+      });
+      // edge handles only: drag the ends for length, the sides for thickness
+      ductRect.setControlsVisibility({ mtr: false, tl: false, tr: false, bl: false, br: false, ml: true, mr: true, mt: true, mb: true });
+      canvas.add(tag({ id: d.id, kind: "duct" }, ductRect));
       // label on the canvas too, matching the export: "WIRE DUCT 40X60 MM"
       canvas.add(new Textbox(`WIRE DUCT ${d.width_mm}X${d.label_h_mm} MM`, {
         left: d.x_mm + w / 2, top: d.y_mm + h / 2,
@@ -252,6 +272,26 @@ export default function FabricStage(props: Props) {
         left: el.x_mm, top: el.y_mm, width: f.w, height: f.h,
         fill: item ? "#ffffff" : "#fdecec", stroke: item ? "#222" : "#c00", strokeWidth: 0.4, ...EQUIP_OPTS, ...styleFor(el.id),
       })));
+      // overlay the real uploaded geometry on top of the footprint rect (visual only)
+      if (item && item.source === "dxf" && item.svg_ref && !overlapIds.has(el.id) && !tightIds.has(el.id)) {
+        const cx = el.x_mm + f.w / 2;
+        const cy = el.y_mm + f.h / 2;
+        loadSVGFromString(item.svg_ref).then((res) => {
+          if (gen !== genRef.current) return; // a newer rebuild happened; discard
+          const objs = (res.objects ?? []).filter((o): o is FabricObject => !!o);
+          if (objs.length === 0) return;
+          const grp = util.groupSVGElements(objs);
+          const bw = grp.width || item.width_mm;
+          const bh = grp.height || item.height_mm;
+          grp.set({
+            originX: "center", originY: "center", left: cx, top: cy,
+            angle: el.rot_deg, scaleX: item.width_mm / bw, scaleY: item.height_mm / bh,
+            selectable: false, evented: false,
+          });
+          canvas.add(grp);
+          canvas.requestRenderAll();
+        }).catch(() => { /* fall back to the rect */ });
+      }
       if (el.tag) {
         const tagH = 10;
         const gap = 2.5;
@@ -288,8 +328,23 @@ export default function FabricStage(props: Props) {
     canvas.requestRenderAll();
   }, [model, library, selectedId, overlapIds, tightIds]);
 
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    const libKey = e.dataTransfer.getData("text/lib-key");
+    const canvas = canvasRef.current;
+    if (!libKey || !canvas || !wrapRef.current) return;
+    const rect = wrapRef.current.getBoundingClientRect();
+    const px = e.clientX - rect.left;
+    const py = e.clientY - rect.top;
+    const vpt = canvas.viewportTransform;
+    const mmX = (px - vpt[4]) / vpt[0];
+    const mmY = (py - vpt[5]) / vpt[3];
+    ref.current.onDropPart(libKey, +mmX.toFixed(2), +mmY.toFixed(2));
+  }
+
   return (
-    <div ref={wrapRef} className="canvas-wrap">
+    <div ref={wrapRef} className="canvas-wrap"
+      onDragOver={(e) => e.preventDefault()} onDrop={handleDrop}>
       <canvas ref={elRef} />
     </div>
   );

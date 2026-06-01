@@ -110,6 +110,22 @@ export function updateDuct(model: LayoutModel, id: string, patch: Partial<Duct>)
   return { ...model, ducts: model.ducts.map((d) => (d.id === id ? { ...d, ...patch } : d)) };
 }
 
+/** Snap a duct's drawn thickness to the standard faces {30,40,60}. (brief §7 Req5) */
+export function snapDuctThickness(v: number): number {
+  return [30, 40, 60].reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
+}
+
+/**
+ * Convert a resized duct's box (from an edge drag) to length + thickness.
+ * Length runs along the orientation (free); thickness snaps to a standard face.
+ */
+export function ductDimsFromBox(rotDeg: number, boxW: number, boxH: number): { length_mm: number; width_mm: number } {
+  const horizontal = rotDeg % 180 === 0;
+  const length = horizontal ? boxW : boxH;
+  const thickness = snapDuctThickness(horizontal ? boxH : boxW);
+  return { length_mm: +length.toFixed(1), width_mm: thickness };
+}
+
 export function updateGroup(model: LayoutModel, id: string, patch: Partial<Group>): LayoutModel {
   return { ...model, groups: model.groups.map((g) => (g.id === id ? { ...g, ...patch } : g)) };
 }

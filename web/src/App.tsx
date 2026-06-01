@@ -6,7 +6,7 @@ import { validate } from "./model/validate";
 import { findOverlaps, tightClearances } from "./model/overlap";
 import {
   addElement, moveEntity, setRotation, deleteEntity,
-  updateElement, updateDuct, addSet, explodeGroup, addLabel, updateLabel,
+  updateElement, updateDuct, addSet, explodeGroup, addLabel, updateLabel, ductDimsFromBox,
   type EntityKind,
 } from "./model/edit";
 import { useHistory } from "./editor/useHistory";
@@ -65,6 +65,17 @@ export default function App() {
     const { model: m2, id } = addSet(model, setLibKey, setCount, { tag_start: setTagStart || null });
     set(m2);
     setSelection({ id, kind: "group" });
+  }
+  function dropPart(libKey: string, x: number, y: number) {
+    const { model: m2, id } = addElement(model, libKey, library, x, y);
+    set(m2);
+    setSelection({ id, kind: "element" });
+  }
+  function resizeDuct(id: string, x: number, y: number, boxW: number, boxH: number) {
+    const d = model.ducts.find((dd) => dd.id === id);
+    if (!d) return;
+    const dims = ductDimsFromBox(d.rot_deg, boxW, boxH);
+    set(updateDuct(model, id, { x_mm: +x.toFixed(2), y_mm: +y.toFixed(2), ...dims }));
   }
 
   function deleteSelected() {
@@ -189,6 +200,7 @@ export default function App() {
             <div className="band-name">Uploaded parts</div>
             {uploadedItems.map((it) => (
               <button key={it.lib_key} type="button" className="lib-item" title={`${it.width_mm}×${it.height_mm} mm`}
+                draggable onDragStart={(e) => e.dataTransfer.setData("text/lib-key", it.lib_key)}
                 onClick={() => addPart(it.lib_key)}>
                 {it.name}
               </button>
@@ -235,6 +247,8 @@ export default function App() {
             onSelect={setSelection}
             onMove={(kind: EntityKind, id, x, y) => set(moveEntity(model, kind, id, x, y))}
             onZoomChange={setZoom}
+            onResizeDuct={resizeDuct}
+            onDropPart={dropPart}
           />
         </div>
       </main>
