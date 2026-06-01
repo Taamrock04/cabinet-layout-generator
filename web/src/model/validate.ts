@@ -8,6 +8,7 @@
 import type { LayoutModel, Library } from "./types";
 import { placedBox, boxWithinPlate } from "./geometry";
 import { libItemSize } from "./resolve";
+import { findOverlaps } from "./overlap";
 
 export type IssueLevel = "error" | "warning";
 
@@ -102,6 +103,11 @@ export function validate(model: LayoutModel, library: Library): Issue[] {
     if (!ok) {
       add("error", "BAD_ANCHOR", `label "${l.id}" anchor "${l.anchor}" does not resolve`, l.id);
     }
+  }
+
+  // --- overlaps: nothing on the plate should overlap (warn-but-allow) ---
+  for (const p of findOverlaps(model, library).pairs) {
+    add("warning", "OVERLAP", `"${p.a.label}" overlaps "${p.b.label}"`, p.a.id);
   }
 
   return issues;

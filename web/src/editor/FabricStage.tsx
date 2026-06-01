@@ -35,6 +35,8 @@ interface Props {
   selectedId: string | null;
   /** Bump this number to trigger a fit-to-view. */
   fitNonce: number;
+  /** Ids of entities that overlap something — drawn with a red alert style. */
+  overlapIds: Set<string>;
   onSelect: (sel: Selection | null) => void;
   onMove: (kind: EntityKind, id: string, x_mm: number, y_mm: number) => void;
   onZoomChange: (zoom: number) => void;
@@ -63,7 +65,7 @@ function applyZoom(canvas: Canvas, z: number, ax: number, ay: number) {
 }
 
 export default function FabricStage(props: Props) {
-  const { model, library, zoom, selectedId, fitNonce } = props;
+  const { model, library, zoom, selectedId, fitNonce, overlapIds } = props;
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const elRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRef = useRef<Canvas | null>(null);
@@ -206,6 +208,8 @@ export default function FabricStage(props: Props) {
     }));
 
     const tag = (meta: Meta, o: Rect) => { (o as unknown as { data: Meta }).data = meta; return o; };
+    // red alert style for anything currently overlapping something else
+    const alert = (id: string) => (overlapIds.has(id) ? { stroke: "#e00000", strokeWidth: 1.2, fill: "#fde2e2" } : {});
 
     for (const d of model.ducts) {
       const horizontal = d.rot_deg % 180 === 0;
@@ -213,7 +217,7 @@ export default function FabricStage(props: Props) {
       const h = horizontal ? d.width_mm : d.length_mm;
       canvas.add(tag({ id: d.id, kind: "duct" }, new Rect({
         left: d.x_mm, top: d.y_mm, width: w, height: h,
-        fill: "#eef3ff", stroke: "#3559b3", strokeWidth: 0.4, ...EQUIP_OPTS,
+        fill: "#eef3ff", stroke: "#3559b3", strokeWidth: 0.4, ...EQUIP_OPTS, ...alert(d.id),
       })));
     }
 
@@ -224,7 +228,7 @@ export default function FabricStage(props: Props) {
       const total = g.count * f.w + (g.count - 1) * g.internal_gap_mm;
       canvas.add(tag({ id: g.id, kind: "group" }, new Rect({
         left: g.x_mm, top: g.y_mm, width: total, height: f.h,
-        fill: "#ffffff", stroke: "#222", strokeWidth: 0.4, ...EQUIP_OPTS,
+        fill: "#ffffff", stroke: "#222", strokeWidth: 0.4, ...EQUIP_OPTS, ...alert(g.id),
       })));
     }
 
@@ -233,7 +237,7 @@ export default function FabricStage(props: Props) {
       const f = item ? rotatedFootprint(libItemSize(item), el.rot_deg) : { w: 10, h: 10 };
       canvas.add(tag({ id: el.id, kind: "element" }, new Rect({
         left: el.x_mm, top: el.y_mm, width: f.w, height: f.h,
-        fill: item ? "#ffffff" : "#fdecec", stroke: item ? "#222" : "#c00", strokeWidth: 0.4, ...EQUIP_OPTS,
+        fill: item ? "#ffffff" : "#fdecec", stroke: item ? "#222" : "#c00", strokeWidth: 0.4, ...EQUIP_OPTS, ...alert(el.id),
       })));
       if (el.tag) {
         canvas.add(new Textbox(el.tag, {
@@ -248,7 +252,7 @@ export default function FabricStage(props: Props) {
       if (obj) canvas.setActiveObject(obj);
     }
     canvas.requestRenderAll();
-  }, [model, library, selectedId]);
+  }, [model, library, selectedId, overlapIds]);
 
   return (
     <div ref={wrapRef} className="canvas-wrap">

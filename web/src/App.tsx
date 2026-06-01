@@ -3,6 +3,7 @@ import { buildDemo } from "./demo";
 import { SEED_LIBRARY } from "./model/library";
 import { BANDS } from "./model/library";
 import { validate } from "./model/validate";
+import { findOverlaps } from "./model/overlap";
 import {
   addElement, moveEntity, setRotation, deleteEntity,
   updateElement, updateDuct, type EntityKind,
@@ -31,6 +32,7 @@ export default function App() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
 
   const issues = useMemo(() => validate(model, SEED_LIBRARY), [model]);
+  const overlapIds = useMemo(() => findOverlaps(model, SEED_LIBRARY).ids, [model]);
 
   const selEl = selection?.kind === "element" ? model.elements.find((e) => e.id === selection.id) ?? null : null;
   const selDuct = selection?.kind === "duct" ? model.ducts.find((d) => d.id === selection.id) ?? null : null;
@@ -142,7 +144,7 @@ export default function App() {
         <div className="sheet">
           <FabricStage
             model={model} library={SEED_LIBRARY} zoom={zoom} snapStep={snapStep}
-            fitNonce={fitNonce}
+            fitNonce={fitNonce} overlapIds={overlapIds}
             selectedId={selection?.id ?? null}
             onSelect={setSelection}
             onMove={(kind: EntityKind, id, x, y) => set(moveEntity(model, kind, id, x, y))}
