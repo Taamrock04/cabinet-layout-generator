@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { buildDemo } from "./demo";
-import { SEED_LIBRARY } from "./model/library";
-import { BANDS } from "./model/library";
+import { SEED_LIBRARY, BANDS } from "./model/library";
+import type { Library, DxfLibItem } from "./model/types";
 import { validate } from "./model/validate";
 import { findOverlaps } from "./model/overlap";
 import {
@@ -10,7 +10,8 @@ import {
 } from "./model/edit";
 import { useHistory } from "./editor/useHistory";
 import FabricStage, { type Selection, clampZoom } from "./editor/FabricStage";
-import { exportDxf, type DxfScale } from "./service/dxfClient";
+import UploadModal from "./editor/UploadModal";
+import { exportDxf, uploadDxf, type DxfScale, type UploadResult } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
 import type { Paper } from "./render/page";
 import "./App.css";
@@ -21,8 +22,15 @@ type Status =
   | { kind: "done"; label: string }
   | { kind: "error"; message: string };
 
+type Upload =
+  | { status: "idle" }
+  | { status: "uploading" }
+  | { status: "confirm"; result: UploadResult; name: string }
+  | { status: "error"; message: string };
+
 export default function App() {
   const { model, set, undo, redo, canUndo, canRedo } = useHistory(buildDemo());
+  const [library, setLibrary] = useState<Library>(() => ({ ...SEED_LIBRARY }));
   const [selection, setSelection] = useState<Selection | null>(null);
   const [snapStep, setSnapStep] = useState(0); // 0 = off, 1 = 1mm grid
   const [zoom, setZoom] = useState(0.45); // px per mm (fit-to-view overrides on load)
@@ -30,9 +38,11 @@ export default function App() {
   const [dxfScale, setDxfScale] = useState<DxfScale>("1:100");
   const [paper, setPaper] = useState<Paper>("A3");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
+  const [upload, setUpload] = useState<Upload>({ status: "idle" });
+  const fileRef = useRef<HTMLInputElement | null>(null);
 
-  const issues = useMemo(() => validate(model, SEED_LIBRARY), [model]);
-  const overlapIds = useMemo(() => findOverlaps(model, SEED_LIBRARY).ids, [model]);
+  const issues = useMemo(() => validate(model, library), [model, library]);
+  const overlapIds = useMemo(() => findOverlaps(model, library).ids, [model, library]);
 
   const selEl = selection?.kind === "element" ? model.elements.find((e) => e.id === selection.id) ?? null : null;
   const selDuct = selection?.kind === "duct" ? model.ducts.find((d) => d.id === selection.id) ?? null : null;
@@ -49,7 +59,6 @@ export default function App() {
     set(setRotation(model, selection.kind, selection.id, cur + 90));
   }
 
-  // keyboard: Delete, Ctrl+Z / Ctrl+Shift+Z|Ctrl+Y
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement;
@@ -70,10 +79,33 @@ export default function App() {
   const busy = status.kind === "busy";
 
   function addPart(libKey: string) {
-    const { model: m2, id } = addElement(model, libKey, SEED_LIBRARY);
+    const { model: m2, id } = addElement(model, libKey, library);
     set(m2);
     setSelection({ id, kind: "element" });
   }
+
+  async function handleFile(file: File) {
+    setUpload({ status: "uploading" });
+    try {
+      const result = await uploadDxf(file);
+      setUpload({ status: "confirm", result, name: file.name.replace(/\.dxf$/i, "") });
+    } catch (e) {
+      setUpload({ status: "error", message: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  function confirmUpload(name: string) {
+    if (upload.status !== "confirm") return;
+    const key = `up_${Date.now().toString(36)}`;
+    const item: DxfLibItem = {
+      lib_key: key, name, source: "dxf",
+      width_mm: upload.result.width_mm, height_mm: upload.result.height_mm,
+      block_ref: upload.result.block_ref, svg_ref: upload.result.svg,
+    };
+    setLibrary((l) => ({ ...l, [key]: item }));
+    setUpload({ status: "idle" });
+  }
+
+  const uploadedItems = Object.values(library).filter((it) => it.source === "dxf");
 
   return (
     <div className="app">
@@ -102,7 +134,7 @@ export default function App() {
                 <option value="1:1">1:1</option><option value="1:100">1:100</option>
               </select>
             </label>
-            <button type="button" disabled={busy} onClick={() => run("DXF (waking service)", () => exportDxf(model, SEED_LIBRARY, dxfScale))}>Export DXF</button>
+            <button type="button" disabled={busy} onClick={() => run("DXF (waking service)", () => exportDxf(model, library, dxfScale))}>Export DXF</button>
           </span>
           <span className="group">
             <label className="field">Paper
@@ -110,9 +142,9 @@ export default function App() {
                 <option value="A4">A4</option><option value="A3">A3</option>
               </select>
             </label>
-            <button type="button" className="ghost" disabled={busy} onClick={() => run("PDF", () => downloadPdf(model, SEED_LIBRARY, paper))}>PDF</button>
-            <button type="button" className="ghost" disabled={busy} onClick={() => run("PNG", () => downloadPng(model, SEED_LIBRARY, paper))}>PNG</button>
-            <button type="button" className="ghost" disabled={busy} onClick={() => run("SVG", () => downloadSvg(model, SEED_LIBRARY))}>SVG</button>
+            <button type="button" className="ghost" disabled={busy} onClick={() => run("PDF", () => downloadPdf(model, library, paper))}>PDF</button>
+            <button type="button" className="ghost" disabled={busy} onClick={() => run("PNG", () => downloadPng(model, library, paper))}>PNG</button>
+            <button type="button" className="ghost" disabled={busy} onClick={() => run("SVG", () => downloadSvg(model, library))}>SVG</button>
           </span>
           {status.kind === "busy" && <span className="status">… {status.label}</span>}
           {status.kind === "done" && <span className="status ok">✓ {status.label}</span>}
@@ -122,8 +154,31 @@ export default function App() {
 
       <aside className="library">
         <h3>Library</h3>
+
+        <input ref={fileRef} type="file" accept=".dxf" style={{ display: "none" }}
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
+        <button type="button" className="upload-btn" disabled={upload.status === "uploading"}
+          onClick={() => fileRef.current?.click()}>
+          {upload.status === "uploading" ? "Uploading… (waking service)" : "⬆ Upload equipment DXF"}
+        </button>
+        {upload.status === "error" && (
+          <p className="upload-err">Upload failed: {upload.message} <button type="button" onClick={() => setUpload({ status: "idle" })}>dismiss</button></p>
+        )}
+
+        {uploadedItems.length > 0 && (
+          <div className="band">
+            <div className="band-name">Uploaded parts</div>
+            {uploadedItems.map((it) => (
+              <button key={it.lib_key} type="button" className="lib-item" title={`${it.width_mm}×${it.height_mm} mm`}
+                onClick={() => addPart(it.lib_key)}>
+                {it.name}
+              </button>
+            ))}
+          </div>
+        )}
+
         {BANDS.map((band) => {
-          const items = Object.values(SEED_LIBRARY).filter((it) => it.band === band.band);
+          const items = Object.values(library).filter((it) => it.band === band.band);
           if (items.length === 0) return null;
           return (
             <div key={band.band} className="band">
@@ -143,7 +198,7 @@ export default function App() {
       <main className="stage">
         <div className="sheet">
           <FabricStage
-            model={model} library={SEED_LIBRARY} zoom={zoom} snapStep={snapStep}
+            model={model} library={library} zoom={zoom} snapStep={snapStep}
             fitNonce={fitNonce} overlapIds={overlapIds}
             selectedId={selection?.id ?? null}
             onSelect={setSelection}
@@ -157,7 +212,7 @@ export default function App() {
         {selEl ? (
           <>
             <h3>Element</h3>
-            <Row label="Library"><span className="ro">{SEED_LIBRARY[selEl.lib_key]?.name ?? selEl.lib_key}</span></Row>
+            <Row label="Library"><span className="ro">{library[selEl.lib_key]?.name ?? selEl.lib_key}</span></Row>
             <Field label="Tag" value={selEl.tag} onChange={(v) => set(updateElement(model, selEl.id, { tag: v }))} />
             <Num label="X (mm)" value={selEl.x_mm} onChange={(v) => set(updateElement(model, selEl.id, { x_mm: v }))} />
             <Num label="Y (mm)" value={selEl.y_mm} onChange={(v) => set(updateElement(model, selEl.id, { y_mm: v }))} />
@@ -179,7 +234,7 @@ export default function App() {
         ) : selGroup ? (
           <>
             <h3>Set ×{selGroup.count}</h3>
-            <Row label="Library"><span className="ro">{SEED_LIBRARY[selGroup.lib_key]?.name ?? selGroup.lib_key}</span></Row>
+            <Row label="Library"><span className="ro">{library[selGroup.lib_key]?.name ?? selGroup.lib_key}</span></Row>
             <Num label="X (mm)" value={selGroup.x_mm} onChange={(v) => set({ ...model, groups: model.groups.map((g) => g.id === selGroup.id ? { ...g, x_mm: v } : g) })} />
             <Num label="Y (mm)" value={selGroup.y_mm} onChange={(v) => set({ ...model, groups: model.groups.map((g) => g.id === selGroup.id ? { ...g, y_mm: v } : g) })} />
             <Row label="Rotation"><span className="ro">{selGroup.rot_deg}°</span> <button type="button" onClick={rotateSelected}>+90°</button></Row>
@@ -196,6 +251,11 @@ export default function App() {
           </ul>
         )}
       </aside>
+
+      {upload.status === "confirm" && (
+        <UploadModal result={upload.result} defaultName={upload.name}
+          onConfirm={confirmUpload} onCancel={() => setUpload({ status: "idle" })} />
+      )}
     </div>
   );
 }

@@ -48,6 +48,41 @@
 }
 .lib-item:hover { background: #eef3ff; border-color: #2f6fed; }
 
+.upload-btn {
+  display: block; width: 100%; margin-bottom: 12px; padding: 8px;
+  font-size: 12px; border: 1px dashed #2f6fed; border-radius: 5px;
+  background: #f5f8ff; color: #2f6fed; cursor: pointer;
+}
+.upload-btn:hover { background: #e9f0ff; }
+.upload-btn:disabled { opacity: 0.6; cursor: default; }
+.upload-err { font-size: 11px; color: #c00; margin: 0 0 10px; }
+.upload-err button { font-size: 11px; margin-left: 4px; }
+
+/* upload confirm modal */
+.modal-overlay {
+  position: fixed; inset: 0; background: rgba(0, 0, 0, 0.4);
+  display: flex; align-items: center; justify-content: center; z-index: 100;
+}
+.modal {
+  background: #fff; border-radius: 8px; padding: 18px 20px; width: 380px;
+  max-width: 92vw; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+.modal h3 { margin: 0 0 12px; font-size: 16px; }
+.upload-preview {
+  height: 200px; border: 1px solid #e3e3e3; border-radius: 6px; background: #fafafa;
+  display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 8px;
+}
+.upload-preview svg { max-width: 100%; max-height: 100%; }
+.measured { font-size: 14px; margin: 12px 0 4px; }
+.warn-units { font-size: 12px; color: #9a6700; margin: 4px 0; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.modal-actions button {
+  font-size: 13px; padding: 7px 14px; border-radius: 5px; cursor: pointer;
+  border: 1px solid #2f6fed; background: #2f6fed; color: #fff;
+}
+.modal-actions button.danger { background: #fff; color: #c00; border-color: #c00; }
+.modal-actions button:disabled { opacity: 0.5; cursor: default; }
+
 /* canvas stage — Fabric fills it; zoom/pan happen inside the canvas */
 .stage { grid-area: stage; overflow: hidden; background: #e9ecef; }
 .sheet { width: 100%; height: 100%; }

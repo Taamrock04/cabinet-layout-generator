@@ -45,10 +45,17 @@ export async function exportDxf(
   library: Library,
   scale: DxfScale,
 ): Promise<void> {
+  // The service only needs size + source + block_ref; drop the (large) inline SVG.
+  const leanLibrary = Object.fromEntries(
+    Object.entries(library).map(([k, v]) => {
+      const { svg_ref: _omit, ...rest } = v as { svg_ref?: string };
+      return [k, rest];
+    }),
+  );
   const res = await fetch(`${BASE}/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ model, library, scale: SCALE_FACTOR[scale] }),
+    body: JSON.stringify({ model, library: leanLibrary, scale: SCALE_FACTOR[scale] }),
   });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
