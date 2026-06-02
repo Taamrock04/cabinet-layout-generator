@@ -15,16 +15,19 @@ service/  Python ezdxf service — DXF upload (→SVG+bbox+block) and DXF export
 shared/   JSON schema + library seed shared by both tiers
 ```
 
-## Web — dev
+## Run & deploy
+- **[RUNNING.md](RUNNING.md)** — run locally (web editor + ezdxf service).
+- **[DEPLOY.md](DEPLOY.md)** — deploy to Vercel (frontend) + Render (service).
+
+Quick start (local):
 ```
-cd web
-npm install
-npm run dev         # editor
-npm test            # core unit tests (vitest)
-npm run typecheck   # tsc --noEmit
+cd web && npm run dev        # editor at http://localhost:5173
+# in a second terminal, only for DXF:
+cd service && .\.venv\Scripts\python.exe -m uvicorn app:app --port 8000
 ```
 
 ## Status
-Phase 1 in progress. Deterministic core (model + validation + re-flow + geometry + SVG render)
-done and tested. Next: the ezdxf service skeleton, then the Fabric.js canvas + exports.
-The Step-0 ezdxf round-trip spike passed (see `Drawing/01 Layout Design/spike/`).
+**Phase 1 complete** — single-user editor (drag/drop, move/rotate/type-mm, sets, labels,
+ducts with resize/snap, zoom/pan, overlap + clearance warnings), equipment DXF upload, and
+all four exports (DXF via service; PDF/PNG/SVG in-browser). Pushed to GitHub; deployable per
+DEPLOY.md. Next: Phase 2 (Supabase auth + shared projects/library; move hosting to Cloudflare).
