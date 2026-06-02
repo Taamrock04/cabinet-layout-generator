@@ -303,7 +303,12 @@ export default function App() {
             <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
           </>
         ) : (
-          <p className="muted small">Select an item on the plate to edit it, or click a library part to add one.</p>
+          <>
+            <h3>Plate</h3>
+            <Num label="Width (mm)" value={model.plate.width_mm} onChange={(v) => v > 0 && set({ ...model, plate: { ...model.plate, width_mm: v } })} />
+            <Num label="Height (mm)" value={model.plate.height_mm} onChange={(v) => v > 0 && set({ ...model, plate: { ...model.plate, height_mm: v } })} />
+            <p className="muted small">Adjust the mounting-plate size, then press <strong>Fit</strong> to recenter the view. Select an item to edit it, or click/drag a library part to add one.</p>
+          </>
         )}
 
         <h3 className="mt">Validation</h3>

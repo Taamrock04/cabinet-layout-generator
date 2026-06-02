@@ -51,6 +51,10 @@ interface Props {
 type Meta = { id: string; kind: EntityKind };
 
 const EQUIP_OPTS = {
+  // Fabric v6 defaults origin to center; we position everything by its TOP-LEFT
+  // (matching the model + the SVG renderer), so pin origin explicitly.
+  originX: "left" as const,
+  originY: "top" as const,
   hasControls: false, // no resize/rotate handles — size is mm-typed only
   lockScalingX: true,
   lockScalingY: true,
@@ -220,7 +224,7 @@ export default function FabricStage(props: Props) {
     const H = model.plate.height_mm;
     canvas.add(new Rect({
       left: 0, top: 0, width: W, height: H, fill: "#fafafa", stroke: "#000", strokeWidth: 0.8,
-      selectable: false, evented: false,
+      selectable: false, evented: false, originX: "left", originY: "top",
     }));
 
     const tag = (meta: Meta, o: Rect) => { (o as unknown as { data: Meta }).data = meta; return o; };
@@ -235,7 +239,7 @@ export default function FabricStage(props: Props) {
       const w = horizontal ? d.length_mm : d.width_mm;
       const h = horizontal ? d.width_mm : d.length_mm;
       const ductRect = new Rect({
-        left: d.x_mm, top: d.y_mm, width: w, height: h,
+        left: d.x_mm, top: d.y_mm, width: w, height: h, originX: "left", originY: "top",
         fill: "#eef3ff", stroke: "#3559b3", strokeWidth: 0.4,
         hasControls: true, lockRotation: true, lockScalingFlip: true,
         borderColor: "#3559b3", cornerColor: "#3559b3", cornerSize: 9, transparentCorners: false,
