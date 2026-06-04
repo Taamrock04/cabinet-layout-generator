@@ -32,14 +32,18 @@ interface Props {
   library: Library;
   zoom: number; // px per mm
   snapStep: number; // 0 = off
-  selectedId: string | null;
+  /** Currently-selected entity ids (one => editable; many => multi-select). */
+  selectedIds: string[];
   /** Bump this number to trigger a fit-to-view. */
   fitNonce: number;
   /** Ids of entities that overlap something — drawn with a red alert style. */
   overlapIds: Set<string>;
   /** Ids of elements too close to a duct — drawn with an orange caution style. */
   tightIds: Set<string>;
-  onSelect: (sel: Selection | null) => void;
+  /** Clicked an entity; `additive` (Shift held) toggles it in the selection. */
+  onSelectEntity: (meta: Selection, additive: boolean) => void;
+  /** Clicked empty space — clear the selection. */
+  onClearSelection: () => void;
   onMove: (kind: EntityKind, id: string, x_mm: number, y_mm: number) => void;
   onZoomChange: (zoom: number) => void;
   /** Duct resized by dragging an edge: new top-left + new box size (mm). */
@@ -75,7 +79,7 @@ function applyZoom(canvas: Canvas, z: number, ax: number, ay: number) {
 }
 
 export default function FabricStage(props: Props) {
-  const { model, library, zoom, selectedId, fitNonce, overlapIds, tightIds } = props;
+  const { model, library, zoom, selectedIds, fitNonce, overlapIds, tightIds } = props;
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const elRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRef = useRef<Canvas | null>(null);
@@ -148,14 +152,6 @@ export default function FabricStage(props: Props) {
         ref.current.onMove(meta.kind, meta.id, +(t.left ?? 0).toFixed(2), +(t.top ?? 0).toFixed(2));
       }
     });
-    const emit = () => {
-      const active = canvas.getActiveObject() as unknown as { data?: Meta } | null;
-      ref.current.onSelect(active?.data ?? null);
-    };
-    canvas.on("selection:created", emit);
-    canvas.on("selection:updated", emit);
-    canvas.on("selection:cleared", () => ref.current.onSelect(null));
-
     // wheel = zoom at cursor
     canvas.on("mouse:wheel", (opt) => {
       const ev = opt.e as WheelEvent;
@@ -172,7 +168,13 @@ export default function FabricStage(props: Props) {
     let lastX = 0;
     let lastY = 0;
     canvas.on("mouse:down", (opt) => {
+      const meta = (opt.target as unknown as { data?: Meta })?.data;
+      if (meta) {
+        // selection is driven here (not Fabric's group selection): Shift = additive
+        ref.current.onSelectEntity(meta, !!(opt.e as MouseEvent).shiftKey);
+      }
       if (!opt.target) {
+        ref.current.onClearSelection();
         panning = true;
         canvas.setCursor("grabbing");
         lastX = (opt.e as MouseEvent).clientX;
@@ -325,12 +327,26 @@ export default function FabricStage(props: Props) {
       canvas.add(tag({ id: l.id, kind: "label" }, t as unknown as Rect));
     }
 
-    if (selectedId) {
-      const obj = canvas.getObjects().find((o) => (o as unknown as { data?: Meta }).data?.id === selectedId);
-      if (obj) canvas.setActiveObject(obj);
+    // reflect the selection: a single object uses Fabric's active border (+ duct
+    // handles); multiple show dashed overlays (Fabric group-selection stays off).
+    const selSet = new Set(selectedIds);
+    const selObjs = canvas.getObjects().filter((o) => selSet.has((o as unknown as { data?: Meta }).data?.id ?? ""));
+    if (selectedIds.length === 1 && selObjs[0]) {
+      canvas.setActiveObject(selObjs[0]);
+    } else {
+      canvas.discardActiveObject();
+      for (const o of selObjs) {
+        canvas.add(new Rect({
+          left: o.left, top: o.top,
+          width: (o.width ?? 0) * (o.scaleX ?? 1), height: (o.height ?? 0) * (o.scaleY ?? 1),
+          originX: "left", originY: "top",
+          fill: "transparent", stroke: "#2f6fed", strokeWidth: 1.5, strokeDashArray: [5, 4],
+          selectable: false, evented: false,
+        }));
+      }
     }
     canvas.requestRenderAll();
-  }, [model, library, selectedId, overlapIds, tightIds]);
+  }, [model, library, selectedIds, overlapIds, tightIds]);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();

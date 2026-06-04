@@ -6,7 +6,7 @@ import { validate } from "./model/validate";
 import { findOverlaps, tightClearances } from "./model/overlap";
 import {
   addElement, moveEntity, setRotation, deleteEntity,
-  updateElement, updateDuct, addSet, explodeGroup, addLabel, updateLabel, ductDimsFromBox,
+  updateElement, updateDuct, updateGroup, addSet, explodeGroup, addLabel, updateLabel, ductDimsFromBox,
   type EntityKind,
 } from "./model/edit";
 import { useHistory } from "./editor/useHistory";
@@ -32,7 +32,7 @@ type Upload =
 export default function App() {
   const { model, set, undo, redo, canUndo, canRedo } = useHistory(buildDemo());
   const [library, setLibrary] = useState<Library>(() => ({ ...SEED_LIBRARY }));
-  const [selection, setSelection] = useState<Selection | null>(null);
+  const [selections, setSelections] = useState<Selection[]>([]);
   const [snapStep, setSnapStep] = useState(0); // 0 = off, 1 = 1mm grid
   const [zoom, setZoom] = useState(0.45); // px per mm (fit-to-view overrides on load)
   const [fitNonce, setFitNonce] = useState(0);
@@ -40,7 +40,14 @@ export default function App() {
   const [paper, setPaper] = useState<Paper>("A3");
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [upload, setUpload] = useState<Upload>({ status: "idle" });
+  const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  function acceptDroppedFile(files: FileList) {
+    const f = [...files].find((file) => file.name.toLowerCase().endsWith(".dxf"));
+    if (f) handleFile(f);
+    else setUpload({ status: "error", message: "Please drop a single .dxf file." });
+  }
 
   // live ezdxf-service availability (DXF upload/export need it; PDF/PNG/SVG don't)
   const [svc, setSvc] = useState<"checking" | "online" | "offline">("checking");
@@ -60,10 +67,22 @@ export default function App() {
   const overlapIds = useMemo(() => findOverlaps(model, library).ids, [model, library]);
   const tightIds = useMemo(() => tightClearances(model, library), [model, library]);
 
-  const selEl = selection?.kind === "element" ? model.elements.find((e) => e.id === selection.id) ?? null : null;
-  const selDuct = selection?.kind === "duct" ? model.ducts.find((d) => d.id === selection.id) ?? null : null;
-  const selGroup = selection?.kind === "group" ? model.groups.find((g) => g.id === selection.id) ?? null : null;
-  const selLabel = selection?.kind === "label" ? model.labels.find((l) => l.id === selection.id) ?? null : null;
+  // exactly-one selection drives the per-entity editor; >1 shows a multi panel
+  const single = selections.length === 1 ? selections[0] : null;
+  const multi = selections.length > 1;
+  const selectedIds = useMemo(() => selections.map((s) => s.id), [selections]);
+  const selEl = single?.kind === "element" ? model.elements.find((e) => e.id === single.id) ?? null : null;
+  const selDuct = single?.kind === "duct" ? model.ducts.find((d) => d.id === single.id) ?? null : null;
+  const selGroup = single?.kind === "group" ? model.groups.find((g) => g.id === single.id) ?? null : null;
+  const selLabel = single?.kind === "label" ? model.labels.find((l) => l.id === single.id) ?? null : null;
+
+  /** Click on an entity: additive (Shift) toggles it; otherwise selects just it. */
+  function selectEntity(meta: Selection, additive: boolean) {
+    setSelections((cur) => {
+      if (!additive) return [meta];
+      return cur.some((s) => s.id === meta.id) ? cur.filter((s) => s.id !== meta.id) : [...cur, meta];
+    });
+  }
 
   // Add-Set form state
   const [setLibKey, setSetLibKey] = useState("term_degson_2c_2_5");
@@ -73,17 +92,17 @@ export default function App() {
   function addPartLabel(kind: "element" | "group", refId: string) {
     const { model: m2, id } = addLabel(model, kind, refId);
     set(m2);
-    setSelection({ id, kind: "label" });
+    setSelections([{ id, kind: "label" }]);
   }
   function doAddSet() {
     const { model: m2, id } = addSet(model, setLibKey, setCount, { tag_start: setTagStart || null });
     set(m2);
-    setSelection({ id, kind: "group" });
+    setSelections([{ id, kind: "group" }]);
   }
   function dropPart(libKey: string, x: number, y: number) {
     const { model: m2, id } = addElement(model, libKey, library, x, y);
     set(m2);
-    setSelection({ id, kind: "element" });
+    setSelections([{ id, kind: "element" }]);
   }
   function resizeDuct(id: string, x: number, y: number, boxW: number, boxH: number) {
     const d = model.ducts.find((dd) => dd.id === id);
@@ -92,22 +111,46 @@ export default function App() {
     set(updateDuct(model, id, { x_mm: +x.toFixed(2), y_mm: +y.toFixed(2), ...dims }));
   }
 
+  /** Delete every selected object in one action. */
   function deleteSelected() {
-    if (!selection) return;
-    set(deleteEntity(model, selection.kind, selection.id));
-    setSelection(null);
+    if (selections.length === 0) return;
+    let m = model;
+    for (const s of selections) m = deleteEntity(m, s.kind, s.id);
+    set(m);
+    setSelections([]);
   }
   function rotateSelected() {
-    if (!selection || (selection.kind !== "element" && selection.kind !== "group")) return;
+    if (!single || (single.kind !== "element" && single.kind !== "group")) return;
     const cur = selEl?.rot_deg ?? selGroup?.rot_deg ?? 0;
-    set(setRotation(model, selection.kind, selection.id, cur + 90));
+    set(setRotation(model, single.kind, single.id, cur + 90));
+  }
+  /** Move every selected object by (dx,dy) mm — arrow-key nudge. */
+  function nudge(dx: number, dy: number) {
+    if (selections.length === 0) return;
+    let m = model;
+    const r = (n: number) => +n.toFixed(2);
+    for (const s of selections) {
+      if (s.kind === "element") { const e = m.elements.find((x) => x.id === s.id); if (e) m = updateElement(m, s.id, { x_mm: r(e.x_mm + dx), y_mm: r(e.y_mm + dy) }); }
+      else if (s.kind === "duct") { const d = m.ducts.find((x) => x.id === s.id); if (d) m = updateDuct(m, s.id, { x_mm: r(d.x_mm + dx), y_mm: r(d.y_mm + dy) }); }
+      else if (s.kind === "group") { const g = m.groups.find((x) => x.id === s.id); if (g) m = updateGroup(m, s.id, { x_mm: r(g.x_mm + dx), y_mm: r(g.y_mm + dy) }); }
+      else if (s.kind === "label") { const l = m.labels.find((x) => x.id === s.id); if (l) m = updateLabel(m, s.id, { dx_mm: r(l.dx_mm + dx), dy_mm: r(l.dy_mm + dy) }); }
+    }
+    set(m);
   }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement;
       if (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA") return;
-      if ((e.key === "Delete" || e.key === "Backspace") && selection) { e.preventDefault(); deleteSelected(); }
+      const arrows: Record<string, [number, number]> = {
+        ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1],
+      };
+      if ((e.key === "Delete" || e.key === "Backspace") && selections.length) { e.preventDefault(); deleteSelected(); }
+      else if (arrows[e.key] && selections.length) {
+        e.preventDefault();
+        const stepMm = e.shiftKey ? 10 : 1; // Shift = coarse (10mm), otherwise 1mm
+        nudge(arrows[e.key][0] * stepMm, arrows[e.key][1] * stepMm);
+      }
       else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) { e.preventDefault(); undo(); }
       else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y" || (e.key.toLowerCase() === "z" && e.shiftKey))) { e.preventDefault(); redo(); }
     }
@@ -125,7 +168,7 @@ export default function App() {
   function addPart(libKey: string) {
     const { model: m2, id } = addElement(model, libKey, library);
     set(m2);
-    setSelection({ id, kind: "element" });
+    setSelections([{ id, kind: "element" }]);
   }
 
   async function handleFile(file: File) {
@@ -209,9 +252,14 @@ export default function App() {
 
         <input ref={fileRef} type="file" accept=".dxf" style={{ display: "none" }}
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }} />
-        <button type="button" className="upload-btn" disabled={upload.status === "uploading"}
-          onClick={() => fileRef.current?.click()}>
-          {upload.status === "uploading" ? "Uploading… (waking service)" : "⬆ Upload equipment DXF"}
+        <button type="button" className={`upload-btn${dragOver ? " dragover" : ""}`} disabled={upload.status === "uploading"}
+          onClick={() => fileRef.current?.click()}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => { e.preventDefault(); setDragOver(false); acceptDroppedFile(e.dataTransfer.files); }}>
+          {upload.status === "uploading" ? "Uploading… (waking service)"
+            : dragOver ? "⬇ Drop .dxf here"
+              : "⬆ Upload equipment DXF (or drop a .dxf here)"}
         </button>
         {upload.status === "error" && (
           <p className="upload-err">Upload failed: {upload.message} <button type="button" onClick={() => setUpload({ status: "idle" })}>dismiss</button></p>
@@ -268,8 +316,9 @@ export default function App() {
           <FabricStage
             model={model} library={library} zoom={zoom} snapStep={snapStep}
             fitNonce={fitNonce} overlapIds={overlapIds} tightIds={tightIds}
-            selectedId={selection?.id ?? null}
-            onSelect={setSelection}
+            selectedIds={selectedIds}
+            onSelectEntity={selectEntity}
+            onClearSelection={() => setSelections([])}
             onMove={(kind: EntityKind, id, x, y) => set(moveEntity(model, kind, id, x, y))}
             onZoomChange={setZoom}
             onResizeDuct={resizeDuct}
@@ -279,7 +328,13 @@ export default function App() {
       </main>
 
       <aside className="panel">
-        {selEl ? (
+        {multi ? (
+          <>
+            <h3>{selections.length} objects selected</h3>
+            <p className="muted small">Shift-click to add/remove. Use arrow keys to nudge (Shift = 10mm), or delete them all.</p>
+            <button type="button" className="danger" onClick={deleteSelected}>Delete {selections.length} objects</button>
+          </>
+        ) : selEl ? (
           <>
             <h3>Element</h3>
             <Row label="Library"><span className="ro">{library[selEl.lib_key]?.name ?? selEl.lib_key}</span></Row>
@@ -315,7 +370,7 @@ export default function App() {
             <Row label="Rotation"><span className="ro">{selGroup.rot_deg}°</span> <button type="button" onClick={rotateSelected}>+90°</button></Row>
             <div className="panel-actions">
               <button type="button" onClick={() => addPartLabel("group", selGroup.id)}>+ Label</button>
-              <button type="button" onClick={() => { set(explodeGroup(model, selGroup.id, library)); setSelection(null); }}>Explode</button>
+              <button type="button" onClick={() => { set(explodeGroup(model, selGroup.id, library)); setSelections([]); }}>Explode</button>
               <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
             </div>
           </>
