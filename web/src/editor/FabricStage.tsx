@@ -17,6 +17,7 @@ import type { LayoutModel, Library } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
 import { snap, anchorHost, type EntityKind } from "../model/edit";
+import { computeSnap } from "../model/align";
 
 export interface Selection {
   id: string;
@@ -32,6 +33,8 @@ interface Props {
   library: Library;
   zoom: number; // px per mm
   snapStep: number; // 0 = off
+  /** When on, dragging a part near another snaps it adjacent + rail-aligned. */
+  alignEnabled: boolean;
   /** Currently-selected entity ids (one => editable; many => multi-select). */
   selectedIds: string[];
   /** Bump this number to trigger a fit-to-view. */
@@ -162,12 +165,34 @@ export default function FabricStage(props: Props) {
     const ro = new ResizeObserver(() => { sizeToWrap(); tryInitialFit(); canvas.requestRenderAll(); });
     if (wrapRef.current) ro.observe(wrapRef.current);
 
-    // move snapping (object space = mm)
+    // transient snap guides (orange seam + rail centerline)
+    const clearGuides = () => {
+      canvas.getObjects().filter((o) => (o as unknown as { __guide?: boolean }).__guide).forEach((o) => canvas.remove(o));
+    };
+    const drawGuides = (seamX: number, railY: number) => {
+      const W = ref.current.model.plate.width_mm;
+      const H = ref.current.model.plate.height_mm;
+      const mk = (props: object) => { const r = new Rect({ fill: "#e08600", selectable: false, evented: false, originX: "left", originY: "top", ...props }); (r as unknown as { __guide: boolean }).__guide = true; return r; };
+      canvas.add(mk({ left: seamX - 0.3, top: 0, width: 0.6, height: H }));   // seam (vertical)
+      canvas.add(mk({ left: 0, top: railY - 0.3, width: W, height: 0.6 }));    // rail centerline (horizontal)
+    };
+
+    // move snapping (object space = mm): rail-snap to a neighbour, else grid
     canvas.on("object:moving", (e) => {
-      const step = ref.current.snapStep;
-      if (step > 0 && e.target) {
-        e.target.set({ left: snap(e.target.left ?? 0, step), top: snap(e.target.top ?? 0, step) });
+      const t = e.target;
+      if (!t) return;
+      clearGuides();
+      const meta = (t as unknown as { data?: Meta }).data;
+      if (ref.current.alignEnabled && meta?.kind === "element") {
+        const s = computeSnap(ref.current.model, ref.current.library, meta.id, t.left ?? 0, t.top ?? 0);
+        if (s) {
+          t.set({ left: s.x, top: s.y });
+          drawGuides(s.guide.seamX, s.guide.railY);
+          return;
+        }
       }
+      const step = ref.current.snapStep;
+      if (step > 0) t.set({ left: snap(t.left ?? 0, step), top: snap(t.top ?? 0, step) });
     });
     canvas.on("object:modified", (e) => {
       const t = e.target;
@@ -221,7 +246,7 @@ export default function FabricStage(props: Props) {
       lastX = e.clientX;
       lastY = e.clientY;
     });
-    canvas.on("mouse:up", () => { panning = false; });
+    canvas.on("mouse:up", () => { panning = false; clearGuides(); canvas.requestRenderAll(); });
 
     // also attempt right after layout, in case ResizeObserver hasn't ticked yet
     requestAnimationFrame(() => { sizeToWrap(); tryInitialFit(); });

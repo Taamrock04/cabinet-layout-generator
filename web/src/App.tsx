@@ -34,6 +34,7 @@ export default function App() {
   const [library, setLibrary] = useState<Library>(() => ({ ...SEED_LIBRARY }));
   const [selections, setSelections] = useState<Selection[]>([]);
   const [snapStep, setSnapStep] = useState(0); // 0 = off, 1 = 1mm grid
+  const [alignEnabled, setAlignEnabled] = useState(true); // rail-snap on drag
   const [zoom, setZoom] = useState(0.45); // px per mm (fit-to-view overrides on load)
   const [fitNonce, setFitNonce] = useState(0);
   const [dxfScale, setDxfScale] = useState<DxfScale>("1:100");
@@ -208,6 +209,10 @@ export default function App() {
               <input type="checkbox" checked={snapStep > 0} onChange={(e) => setSnapStep(e.target.checked ? 1 : 0)} />
               Snap 1mm
             </label>
+            <label className="field" title="Snap a dragged part adjacent to its neighbour with the 0.1mm gap, aligned to the rail centerline">
+              <input type="checkbox" checked={alignEnabled} onChange={(e) => setAlignEnabled(e.target.checked)} />
+              Align
+            </label>
           </span>
           <span className="group">
             <button type="button" className="icon" title="Zoom out" onClick={() => setZoom((z) => clampZoom(z / 1.25))}>−</button>
@@ -314,7 +319,7 @@ export default function App() {
       <main className="stage">
         <div className="sheet">
           <FabricStage
-            model={model} library={library} zoom={zoom} snapStep={snapStep}
+            model={model} library={library} zoom={zoom} snapStep={snapStep} alignEnabled={alignEnabled}
             fitNonce={fitNonce} overlapIds={overlapIds} tightIds={tightIds}
             selectedIds={selectedIds}
             onSelectEntity={selectEntity}
@@ -343,6 +348,9 @@ export default function App() {
             <Num label="Y (mm)" value={selEl.y_mm} onChange={(v) => set(updateElement(model, selEl.id, { y_mm: v }))} />
             <Num label="Gap before (mm)" value={selEl.gap_before_mm} step={0.1} onChange={(v) => set(updateElement(model, selEl.id, { gap_before_mm: v }))} />
             <Num label="Duct clearance (mm)" value={selEl.clearance_to_duct_mm} step={0.5} onChange={(v) => set(updateElement(model, selEl.id, { clearance_to_duct_mm: v }))} />
+            <Num label="Rail offset (mm)" step={0.5}
+              value={library[selEl.lib_key]?.rail_offset_mm ?? ((library[selEl.lib_key]?.height_mm ?? 0) / 2)}
+              onChange={(v) => setLibrary((l) => ({ ...l, [selEl.lib_key]: { ...l[selEl.lib_key], rail_offset_mm: v } }))} />
             <Row label="Rotation"><span className="ro">{selEl.rot_deg}°</span> <button type="button" onClick={rotateSelected}>+90°</button></Row>
             <div className="panel-actions">
               <button type="button" onClick={() => addPartLabel("element", selEl.id)}>+ Label</button>

@@ -118,6 +118,12 @@ interface LibItemBase {
   band?: number;
   /** True while a dimension is an unconfirmed estimate (Ref 05 §9). */
   confirm?: boolean;
+  /**
+   * Distance (mm) from the part's TOP edge down to the DIN-rail centerline — the
+   * common mounting reference parts align to. Undefined = the part's vertical
+   * centre (height/2). Used by the editor's rail-snap alignment. (brief §7 / DIN)
+   */
+  rail_offset_mm?: number;
 }
 
 /** Uploaded DXF: the ezdxf service holds block + SVG + measured size. */
