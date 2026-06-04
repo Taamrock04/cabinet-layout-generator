@@ -21,7 +21,7 @@ shared/   JSON schema + library seed shared by both tiers
 
 Quick start (local):
 ```
-cd web && npm run dev        # editor at http://localhost:5173
+cd web && npm run dev        # editor at http://localhost:5180
 # in a second terminal, only for DXF:
 cd service && .\.venv\Scripts\python.exe -m uvicorn app:app --port 8000
 ```

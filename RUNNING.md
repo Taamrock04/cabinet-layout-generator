@@ -18,7 +18,8 @@ The editor, drag/drop, and **PDF / PNG / SVG** exports work with **just Terminal
 cd C:\dev\cabinet-layout-generator\web
 npm run dev
 ```
-Open **http://localhost:5173**.
+Open **http://localhost:5180**. (Port 5180 is used instead of Vite's default 5173 to avoid
+colliding with other local dev servers.)
 
 ### Terminal 2 — the ezdxf service (only for DXF)
 ```powershell
@@ -64,8 +65,8 @@ npm run preview   # serve the production build locally
 **"Port already in use" / the dev server won't start**
 A previous run is still holding the port. Close that terminal, or kill it:
 ```powershell
-# web (5173)
-Get-NetTCPConnection -LocalPort 5173 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
+# web (5180)
+Get-NetTCPConnection -LocalPort 5180 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 # service (8000)
 Get-NetTCPConnection -LocalPort 8000 -State Listen | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
 ```

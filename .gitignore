@@ -21,9 +21,8 @@ build/
 .vscode/
 .idea/
 
-# spike + service scratch artifacts
-spike/out_*.dxf
-spike/out_*.png
-spike/out_*.svg
-service/out_*
+# spike + service scratch artifacts (DXF/SVG/PNG dumps from tests/tools)
+**/out_*.dxf
+**/out_*.png
+**/out_*.svg
 service/_blocks/

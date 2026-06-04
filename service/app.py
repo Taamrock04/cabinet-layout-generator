@@ -26,7 +26,7 @@ app = FastAPI(title="Cabinet Layout — ezdxf service", version="0.1.0")
 # frontend domain can be added without a code change; defaults to local dev.
 _origins = os.environ.get(
     "ALLOWED_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173",
+    "http://localhost:5180,http://127.0.0.1:5180",
 )
 app.add_middleware(
     CORSMiddleware,
