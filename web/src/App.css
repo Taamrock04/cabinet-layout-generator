@@ -33,6 +33,19 @@
 }
 .toolbar button.ghost { background: #fff; color: #2f6fed; }
 .toolbar button:disabled { opacity: 0.5; cursor: default; }
+/* ezdxf service status chip */
+.toolbar button.svc {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; padding: 5px 10px; border-radius: 12px; cursor: pointer;
+  background: #f4f4f5; color: #444; border: 1px solid #e0e0e0; text-transform: capitalize;
+}
+.svc .dot { width: 8px; height: 8px; border-radius: 50%; background: #aaa; }
+.svc-online { color: #1a7f37; border-color: #b6e3c2; background: #eefaf1; }
+.svc-online .dot { background: #1a7f37; }
+.svc-offline { color: #c00; border-color: #f2c2c2; background: #fdf0f0; }
+.svc-offline .dot { background: #c00; }
+.svc-checking .dot { background: #d0a000; }
+
 .status { font-size: 12px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .status.ok { color: #1a7f37; }
 .status.err { color: #c00; }

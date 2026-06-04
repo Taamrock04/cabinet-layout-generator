@@ -12,7 +12,7 @@ import {
 import { useHistory } from "./editor/useHistory";
 import FabricStage, { type Selection, clampZoom } from "./editor/FabricStage";
 import UploadModal from "./editor/UploadModal";
-import { exportDxf, uploadDxf, type DxfScale, type UploadResult } from "./service/dxfClient";
+import { exportDxf, uploadDxf, ping, type DxfScale, type UploadResult } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";
 import type { Paper } from "./render/page";
 import "./App.css";
@@ -41,6 +41,20 @@ export default function App() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [upload, setUpload] = useState<Upload>({ status: "idle" });
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // live ezdxf-service availability (DXF upload/export need it; PDF/PNG/SVG don't)
+  const [svc, setSvc] = useState<"checking" | "online" | "offline">("checking");
+  const checkSvc = async () => {
+    setSvc((s) => (s === "online" ? s : "checking"));
+    setSvc((await ping()) ? "online" : "offline");
+  };
+  useEffect(() => {
+    let alive = true;
+    const run = async () => { const ok = await ping(); if (alive) setSvc(ok ? "online" : "offline"); };
+    run();
+    const t = setInterval(run, 20000); // re-check every 20s
+    return () => { alive = false; clearInterval(t); };
+  }, []);
 
   const issues = useMemo(() => validate(model, library), [model, library]);
   const overlapIds = useMemo(() => findOverlaps(model, library).ids, [model, library]);
@@ -159,6 +173,14 @@ export default function App() {
             <button type="button" className="ghost" title="Fit to view" onClick={() => setFitNonce((n) => n + 1)}>Fit</button>
           </span>
           <span className="group">
+            <button type="button" className={`svc svc-${svc}`} onClick={checkSvc}
+              title={
+                svc === "online" ? "ezdxf service online — DXF upload/export available (click to re-check)"
+                  : svc === "offline" ? "ezdxf service offline — DXF disabled; PDF/PNG/SVG still work (click to retry)"
+                    : "checking ezdxf service…"
+              }>
+              <span className="dot" /> DXF service: {svc}
+            </button>
             <label className="field">DXF
               <select value={dxfScale} onChange={(e) => setDxfScale(e.target.value as DxfScale)}>
                 <option value="1:1">1:1</option><option value="1:100">1:100</option>
