@@ -104,6 +104,36 @@ export default function FabricStage(props: Props) {
     ref.current.onZoomChange(z);
   }
 
+  /**
+   * Reflect the current selection WITHOUT recreating objects (so it never
+   * interrupts a drag): a single selection uses Fabric's active object (border +
+   * duct handles); multiple show dashed overlays. Re-applied after a rebuild too.
+   */
+  function applySelection(canvas: Canvas) {
+    canvas.getObjects()
+      .filter((o) => (o as unknown as { __selHL?: boolean }).__selHL)
+      .forEach((o) => canvas.remove(o));
+    const ids = ref.current.selectedIds;
+    const sel = new Set(ids);
+    const objs = canvas.getObjects().filter((o) => sel.has((o as unknown as { data?: Meta }).data?.id ?? ""));
+    if (ids.length === 1 && objs[0]) {
+      if (canvas.getActiveObject() !== objs[0]) canvas.setActiveObject(objs[0]);
+    } else {
+      if (canvas.getActiveObject()) canvas.discardActiveObject();
+      for (const o of objs) {
+        const hl = new Rect({
+          left: o.left, top: o.top,
+          width: (o.width ?? 0) * (o.scaleX ?? 1), height: (o.height ?? 0) * (o.scaleY ?? 1),
+          originX: "left", originY: "top",
+          fill: "transparent", stroke: "#2f6fed", strokeWidth: 1.5, strokeDashArray: [5, 4],
+          selectable: false, evented: false,
+        });
+        (hl as unknown as { __selHL: boolean }).__selHL = true;
+        canvas.add(hl);
+      }
+    }
+  }
+
   // init once
   useEffect(() => {
     const canvas = new Canvas(elRef.current!, {
@@ -327,26 +357,21 @@ export default function FabricStage(props: Props) {
       canvas.add(tag({ id: l.id, kind: "label" }, t as unknown as Rect));
     }
 
-    // reflect the selection: a single object uses Fabric's active border (+ duct
-    // handles); multiple show dashed overlays (Fabric group-selection stays off).
-    const selSet = new Set(selectedIds);
-    const selObjs = canvas.getObjects().filter((o) => selSet.has((o as unknown as { data?: Meta }).data?.id ?? ""));
-    if (selectedIds.length === 1 && selObjs[0]) {
-      canvas.setActiveObject(selObjs[0]);
-    } else {
-      canvas.discardActiveObject();
-      for (const o of selObjs) {
-        canvas.add(new Rect({
-          left: o.left, top: o.top,
-          width: (o.width ?? 0) * (o.scaleX ?? 1), height: (o.height ?? 0) * (o.scaleY ?? 1),
-          originX: "left", originY: "top",
-          fill: "transparent", stroke: "#2f6fed", strokeWidth: 1.5, strokeDashArray: [5, 4],
-          selectable: false, evented: false,
-        }));
-      }
-    }
+    applySelection(canvas); // re-apply selection visuals onto the fresh objects
     canvas.requestRenderAll();
-  }, [model, library, selectedIds, overlapIds, tightIds]);
+    // NOTE: selectedIds is intentionally NOT a dependency — selection changes must
+    // not recreate objects (that interrupts an in-progress drag). See the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [model, library, overlapIds, tightIds]);
+
+  // update selection visuals on selection change, without recreating objects
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    applySelection(canvas);
+    canvas.requestRenderAll();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIds]);
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault();
