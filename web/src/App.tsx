@@ -216,6 +216,9 @@ export default function App() {
         {upload.status === "error" && (
           <p className="upload-err">Upload failed: {upload.message} <button type="button" onClick={() => setUpload({ status: "idle" })}>dismiss</button></p>
         )}
+        {svc === "offline" && upload.status !== "error" && (
+          <p className="upload-hint">⚠ DXF service offline — start it (port 8000) to upload/export. PDF/PNG/SVG work without it.</p>
+        )}
 
         {uploadedItems.length > 0 && (
           <div className="band">

@@ -70,6 +70,7 @@
 .upload-btn:disabled { opacity: 0.6; cursor: default; }
 .upload-err { font-size: 11px; color: #c00; margin: 0 0 10px; }
 .upload-err button { font-size: 11px; margin-left: 4px; }
+.upload-hint { font-size: 11px; color: #9a6700; margin: -6px 0 10px; line-height: 1.35; }
 
 /* upload confirm modal */
 .modal-overlay {

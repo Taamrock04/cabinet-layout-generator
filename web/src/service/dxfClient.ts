@@ -28,6 +28,19 @@ export interface UploadResult {
   confirm_message: string;
 }
 
+/** A clear message when the service can't be reached at all (vs an HTTP error). */
+const UNREACHABLE = `Can't reach the ezdxf service at ${BASE}. Is it running? ` +
+  `DXF upload/export need it (start it on port 8000); PDF/PNG/SVG work without it.`;
+
+/** fetch that turns a network/CORS failure into an actionable error. */
+async function serviceFetch(path: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(`${BASE}${path}`, init);
+  } catch {
+    throw new Error(UNREACHABLE);
+  }
+}
+
 function triggerDownload(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -52,7 +65,7 @@ export async function exportDxf(
       return [k, rest];
     }),
   );
-  const res = await fetch(`${BASE}/export`, {
+  const res = await serviceFetch(`/export`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model, library: leanLibrary, scale: SCALE_FACTOR[scale] }),
@@ -70,7 +83,7 @@ export async function exportDxf(
 export async function uploadDxf(file: File): Promise<UploadResult> {
   const form = new FormData();
   form.append("file", file);
-  const res = await fetch(`${BASE}/upload`, { method: "POST", body: form });
+  const res = await serviceFetch(`/upload`, { method: "POST", body: form });
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
     throw new Error(`Upload failed (${res.status}). ${detail}`.trim());
