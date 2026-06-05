@@ -115,6 +115,9 @@ uvicorn app:app --port 8000
 
 Full instructions: **[RUNNING.md](RUNNING.md)** · deploy to Vercel + Render: **[DEPLOY.md](DEPLOY.md)**.
 
+**New to the editor?** Once it's running, click **? Guide** in the toolbar (or open `/guide.html`) for an
+illustrated walkthrough of every feature.
+
 ---
 
 ## Tech stack

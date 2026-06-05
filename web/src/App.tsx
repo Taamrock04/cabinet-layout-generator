@@ -254,6 +254,10 @@ export default function App() {
 
         <div className="toolbar">
           <span className="group">
+            <button type="button" className="ghost" title="How to use this tool (opens in a new tab)"
+              onClick={() => window.open("/guide.html", "_blank", "noopener")}>? Guide</button>
+          </span>
+          <span className="group">
             <button type="button" onClick={undo} disabled={!canUndo} title="Undo (Ctrl+Z)">↶</button>
             <button type="button" onClick={redo} disabled={!canRedo} title="Redo (Ctrl+Shift+Z)">↷</button>
             <label className="field">

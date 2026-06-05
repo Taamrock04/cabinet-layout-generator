@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How to use · Cabinet Layout Generator</title>
+<style>
+  :root{
+    --blue:#2f6fed; --ink:#1a1a1a; --muted:#5b6470; --line:#e4e7ec;
+    --bg:#f6f8fb; --card:#fff; --duct:#eef3ff; --duct-line:#3559b3;
+    --ok:#1a7f37; --warn:#9a6700; --err:#c0392b; --code:#eef1f6;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--ink);background:var(--bg);line-height:1.6}
+  a{color:var(--blue);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code,kbd{font-family:ui-monospace,Consolas,Menlo,monospace}
+  code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:.92em}
+  kbd{background:#fff;border:1px solid #cfd4dc;border-bottom-width:2px;border-radius:5px;padding:1px 7px;font-size:.82em;color:#333;white-space:nowrap}
+
+  /* top bar */
+  header.top{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:10px 22px}
+  header.top .brand{font-weight:700}
+  header.top .brand small{color:var(--muted);font-weight:400;margin-left:8px;font-size:.8em}
+  header.top .cta{margin-left:auto;background:var(--blue);color:#fff;padding:7px 14px;border-radius:6px;font-size:.9em}
+  header.top .cta:hover{text-decoration:none;background:#235fd1}
+
+  /* hero */
+  .hero{padding:46px 22px 30px;max-width:1080px;margin:0 auto;text-align:center}
+  .hero h1{font-size:2.1rem;margin:.2em 0}
+  .hero p{color:var(--muted);max-width:680px;margin:0 auto;font-size:1.05rem}
+
+  /* layout */
+  .wrap{max-width:1080px;margin:0 auto;padding:0 22px 80px;display:grid;grid-template-columns:220px 1fr;gap:38px}
+  nav.toc{position:sticky;top:64px;align-self:start;font-size:.9rem;max-height:calc(100vh - 80px);overflow:auto}
+  nav.toc strong{display:block;font-size:.74rem;text-transform:uppercase;letter-spacing:.4px;color:var(--muted);margin:0 0 8px}
+  nav.toc a{display:block;color:#333;padding:5px 10px;border-left:2px solid transparent;border-radius:0 4px 4px 0}
+  nav.toc a:hover{background:#eef3ff;text-decoration:none;border-left-color:var(--blue)}
+  main{min-width:0}
+
+  section{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px 26px;margin:0 0 22px;scroll-margin-top:72px}
+  section h2{margin:.1em 0 .5em;font-size:1.35rem;display:flex;align-items:center;gap:10px}
+  section h2 .ic{width:26px;height:26px;flex:none;color:var(--blue)}
+  section h3{margin:1.2em 0 .3em;font-size:1.02rem}
+  ul{padding-left:1.2em}
+  li{margin:.28em 0}
+
+  .lead{color:var(--muted);margin-top:0}
+  figure{margin:18px 0;text-align:center}
+  figure svg{max-width:100%;height:auto;border:1px solid var(--line);border-radius:8px;background:#fff}
+  figcaption{color:var(--muted);font-size:.86rem;margin-top:8px}
+
+  /* step cards */
+  .steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin:8px 0}
+  .step{background:#fbfcfe;border:1px solid var(--line);border-radius:10px;padding:14px 15px}
+  .step .n{display:inline-flex;width:26px;height:26px;border-radius:50%;background:var(--blue);color:#fff;
+    align-items:center;justify-content:center;font-weight:700;font-size:.9rem;margin-bottom:6px}
+  .step b{display:block;margin-bottom:2px}
+  .step p{margin:0;color:var(--muted);font-size:.9rem}
+
+  /* callouts */
+  .note{border-left:4px solid var(--blue);background:#f2f7ff;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0}
+  .note.tip{border-left-color:var(--ok);background:#eefaf1}
+  .note.warn{border-left-color:var(--warn);background:#fff8e8}
+  .note .t{font-weight:700;font-size:.82rem;text-transform:uppercase;letter-spacing:.3px}
+  .note.tip .t{color:var(--ok)} .note.warn .t{color:var(--warn)} .note:not(.tip):not(.warn) .t{color:var(--blue)}
+
+  table{width:100%;border-collapse:collapse;margin:10px 0;font-size:.94rem}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{font-size:.8rem;text-transform:uppercase;letter-spacing:.3px;color:var(--muted)}
+  td kbd{margin-right:3px}
+
+  footer{max-width:1080px;margin:0 auto;padding:24px 22px 60px;color:var(--muted);font-size:.86rem;text-align:center}
+
+  /* animations for the illustrative SVGs */
+  @keyframes ductSnap{0%,12%{transform:translateX(20px)}34%,86%{transform:translateX(0)}100%{transform:translateX(20px)}}
+  @keyframes guideFlash{0%,30%{opacity:0}38%,52%{opacity:1}66%,100%{opacity:0}}
+  @keyframes pairMove{0%,12%{transform:translate(0,0)}38%,86%{transform:translate(60px,0)}100%{transform:translate(0,0)}}
+  .anim-duct{animation:ductSnap 3.2s ease-in-out infinite}
+  .anim-guide{animation:guideFlash 3.2s ease-in-out infinite}
+  .anim-pair{animation:pairMove 3.4s ease-in-out infinite}
+  @media (prefers-reduced-motion: reduce){.anim-duct,.anim-guide,.anim-pair{animation:none}}
+
+  @media (max-width:820px){
+    .wrap{grid-template-columns:1fr;gap:0}
+    nav.toc{display:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <span class="brand">Cabinet Layout Generator <small>User guide</small></span>
+  <a class="cta" href="/">Open the editor →</a>
+</header>
+
+<div class="hero">
+  <h1>How this tool works</h1>
+  <p>Lay out a control-cabinet back-plate by hand — parts, wire ducts, terminals, labels — then export a
+     real DXF (for GstarCAD) plus PDF, PNG and SVG. Everything you see is drawn from one data model, so
+     your exports always match the screen.</p>
+</div>
+
+<div class="wrap">
+  <nav class="toc">
+    <strong>On this page</strong>
+    <a href="#rule">The one rule</a>
+    <a href="#screen">The screen</a>
+    <a href="#quickstart">Quick start</a>
+    <a href="#parts">Add parts</a>
+    <a href="#move">Move &amp; arrange</a>
+    <a href="#ducts">Wire ducts</a>
+    <a href="#rows">Rows</a>
+    <a href="#stopper">Stoppers &amp; labels</a>
+    <a href="#custom">Custom parts</a>
+    <a href="#validate">Validation</a>
+    <a href="#export">Export</a>
+    <a href="#keys">Keyboard</a>
+  </nav>
+
+  <main>
+
+    <section id="rule">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>The one rule to know</h2>
+      <p class="lead">It changes how you think about the tool.</p>
+      <div class="note">
+        <div class="t">Principle</div>
+        The tool <b>never invents geometry</b>. Every line and size is exactly what you entered — it does
+        not guess. Deterministic code draws; <b>you review the result in CAD</b>. If something is unknown,
+        it's flagged for you to confirm, never silently filled in.
+      </div>
+      <p>In practice that means: equipment can't be free-stretched with the mouse (a real part has one true
+         size), sizes change only by typed millimetres, and the boundary/overlap checks <em>warn</em> you
+         rather than quietly moving things.</p>
+    </section>
+
+    <section id="screen">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 8h18M9 8v12"/></svg>The screen at a glance</h2>
+      <figure>
+        <svg viewBox="0 0 720 360" role="img" aria-label="Diagram of the four screen regions">
+          <rect x="1" y="1" width="718" height="358" rx="8" fill="#fff" stroke="#e4e7ec"/>
+          <!-- toolbar -->
+          <rect x="12" y="12" width="696" height="40" rx="6" fill="#f2f7ff" stroke="#cfe0ff"/>
+          <text x="24" y="37" font-size="13" fill="#235fd1" font-weight="bold">① Toolbar</text>
+          <text x="120" y="37" font-size="12" fill="#5b6470">undo · snap/align · zoom · DXF &amp; PDF/PNG/SVG export · ? Guide</text>
+          <!-- library -->
+          <rect x="12" y="62" width="150" height="286" rx="6" fill="#fafafa" stroke="#e4e7ec"/>
+          <text x="24" y="84" font-size="13" fill="#235fd1" font-weight="bold">② Library</text>
+          <text x="24" y="104" font-size="11" fill="#5b6470">parts by band,</text>
+          <text x="24" y="118" font-size="11" fill="#5b6470">ducts, custom</text>
+          <text x="24" y="132" font-size="11" fill="#5b6470">part, add-a-set,</text>
+          <text x="24" y="146" font-size="11" fill="#5b6470">upload DXF</text>
+          <!-- canvas -->
+          <rect x="172" y="62" width="372" height="286" rx="6" fill="#eef0f2" stroke="#e4e7ec"/>
+          <rect x="232" y="92" width="252" height="226" fill="#fafafa" stroke="#000" stroke-width="1.5"/>
+          <rect x="232" y="92" width="22" height="226" fill="#eef3ff" stroke="#3559b3"/>
+          <rect x="462" y="92" width="22" height="226" fill="#eef3ff" stroke="#3559b3"/>
+          <rect x="266" y="120" width="60" height="40" fill="#fff" stroke="#222"/>
+          <rect x="336" y="120" width="40" height="40" fill="#fff" stroke="#222"/>
+          <text x="300" y="80" font-size="13" fill="#235fd1" font-weight="bold" text-anchor="middle">③ Canvas (the mounting plate)</text>
+          <!-- panel -->
+          <rect x="554" y="62" width="154" height="286" rx="6" fill="#fafafa" stroke="#e4e7ec"/>
+          <text x="566" y="84" font-size="13" fill="#235fd1" font-weight="bold">④ Properties</text>
+          <text x="566" y="104" font-size="11" fill="#5b6470">edit the selected</text>
+          <text x="566" y="118" font-size="11" fill="#5b6470">object — or Rows</text>
+          <text x="566" y="132" font-size="11" fill="#5b6470">+ Validation when</text>
+          <text x="566" y="146" font-size="11" fill="#5b6470">nothing is selected</text>
+        </svg>
+        <figcaption>Toolbar on top · Library on the left · the plate in the centre · Properties &amp; Validation on the right.</figcaption>
+      </figure>
+      <ul>
+        <li><b>Canvas:</b> mouse-<b>wheel</b> zooms at the cursor, <b>drag empty space</b> to pan, <kbd>Fit</kbd> recentres.</li>
+        <li>Click an object to select it; the right panel shows its properties. Click empty space to deselect (you then see the <b>Rows</b> + <b>Validation</b> panel).</li>
+      </ul>
+    </section>
+
+    <section id="quickstart">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9z"/></svg>Quick start</h2>
+      <div class="steps">
+        <div class="step"><span class="n">1</span><b>Add a part</b><p>Click a part in the Library (or drag it onto the plate).</p></div>
+        <div class="step"><span class="n">2</span><b>Place it</b><p>Drag it on the canvas; nudge with arrow keys for precision.</p></div>
+        <div class="step"><span class="n">3</span><b>Frame with ducts</b><p>Add wire ducts; drag them to snap onto the plate borders.</p></div>
+        <div class="step"><span class="n">4</span><b>Tag &amp; check</b><p>Give parts tags; watch the Validation panel for warnings.</p></div>
+        <div class="step"><span class="n">5</span><b>Export</b><p>Export DXF (needs the service) or PDF/PNG/SVG in the browser.</p></div>
+      </div>
+      <div class="note tip"><div class="t">Tip</div>The app opens on a demo layout — feel free to drag things around and delete them to learn the controls. Use <kbd>Ctrl</kbd>+<kbd>Z</kbd> to undo anything.</div>
+    </section>
+
+    <section id="parts">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Adding parts</h2>
+      <ul>
+        <li><b>From the Library:</b> parts are grouped into bands (Power, Control, Relays, Terminals…). <b>Click</b> a part to drop it in, or <b>drag</b> it onto the plate where you want it.</li>
+        <li><b>A set of identical parts:</b> use <b>Add a set</b> — pick the part, a count, and a starting tag (e.g. <code>B101</code>); they're placed in a row, auto-numbered.</li>
+        <li><b>Your own equipment:</b> drag a <code>.dxf</code> file onto the <b>Upload</b> box (top of the Library). The tool measures it and asks you to confirm the size before adding it.</li>
+      </ul>
+      <div class="note warn"><div class="t">Remember</div>A marked part dimension with a <code>*</code> is an unconfirmed estimate — replace it with a real datasheet/DXF size before the drawing goes to the shop.</div>
+    </section>
+
+    <section id="move">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20M12 2l-3 3M12 2l3 3M12 22l-3-3M12 22l3-3M2 12l3-3M2 12l3 3M22 12l-3-3M22 12l-3 3"/></svg>Moving &amp; arranging</h2>
+      <ul>
+        <li><b>Drag</b> a part on the canvas to move it. <b>Arrow keys</b> nudge by 1 mm; hold <kbd>Shift</kbd> for 10 mm.</li>
+        <li><b>Select many:</b> <kbd>Shift</kbd>+click to add/remove from the selection, then move or <kbd>Delete</kbd> them together.</li>
+        <li><b>Rotate:</b> select a part and press <kbd>+90°</kbd> in the panel (spacing uses the rotated footprint).</li>
+        <li><b>Resize:</b> equipment keeps its true size — change it only by typing millimetres, never by stretching. (Custom parts and duct length are the exceptions; see below.)</li>
+      </ul>
+      <h3>Alignment helpers (the <b>Align</b> toggle)</h3>
+      <p>With <b>Align</b> on, a dragged part snaps to the <b>DIN-rail centreline</b> of its row and butts up to a
+         neighbour with the standard gap — guide lines flash to show the snap. The <b>Snap 1 mm</b> toggle adds a plain 1 mm grid.</p>
+    </section>
+
+    <section id="ducts">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="4" height="18"/><rect x="17" y="3" width="4" height="18"/><rect x="7" y="9" width="10" height="5"/></svg>Wire ducts</h2>
+      <p class="lead">Add <b>side</b> ducts and <b>row</b> ducts to frame the plate and separate rows.</p>
+      <figure>
+        <svg viewBox="0 0 320 180" role="img" aria-label="Animation: a duct snapping flush to the plate's left border">
+          <rect x="20" y="14" width="280" height="152" fill="#fafafa" stroke="#000" stroke-width="1.5"/>
+          <line class="anim-guide" x1="20" y1="8" x2="20" y2="172" stroke="#2f6fed" stroke-width="2.5" stroke-dasharray="5 3"/>
+          <g class="anim-duct">
+            <rect x="20" y="30" width="26" height="120" fill="#eef3ff" stroke="#3559b3" stroke-width="1.3"/>
+          </g>
+          <text x="170" y="96" font-size="12" fill="#5b6470" text-anchor="middle">drag a duct near an edge…</text>
+          <text x="170" y="114" font-size="12" fill="#235fd1" text-anchor="middle" font-weight="bold">…it snaps flush to the border</text>
+        </svg>
+        <figcaption>Drag a duct toward any of the four plate borders and it snaps exactly onto the edge.</figcaption>
+      </figure>
+      <ul>
+        <li><b>Snap to borders:</b> with Align on, drag a duct toward a plate edge — it lands exactly on the border (all four sides).</li>
+        <li><b>Row ducts auto-span:</b> a new <kbd>+ Wire duct (row)</kbd> automatically stretches between the left and right side ducts — no measuring.</li>
+        <li><b>Re-fit any time:</b> select a row duct and press <kbd>Fit width</kbd> to re-span it exactly between the side ducts.</li>
+        <li><b>Duct length</b> is the one shape you may drag to resize (grab a side handle); width snaps to the standard faces.</li>
+      </ul>
+    </section>
+
+    <section id="rows">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>Rows</h2>
+      <ul>
+        <li>The space between two horizontal ducts is a <b>row</b>. Each row's height is <b>dimensioned in the right margin</b> of the drawing.</li>
+        <li><b>Edit a row height:</b> click its dimension on the canvas and type a new value.</li>
+        <li><b>Pack</b> a row to line its devices up from the left duct with the standard gap; <b>Center</b> drops them onto the row centreline.</li>
+        <li>If a row's parts don't fit, you get an itemised overflow warning — nothing is silently cropped.</li>
+      </ul>
+    </section>
+
+    <section id="stopper">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="3" width="5" height="18" rx="1"/><rect x="13" y="3" width="5" height="18" rx="1"/></svg>Stoppers &amp; labels</h2>
+      <p class="lead">End brackets for terminal rows — with an optional marker plate.</p>
+      <figure>
+        <svg viewBox="0 0 320 170" role="img" aria-label="Animation: a stopper and its label moving together as a locked pair">
+          <rect x="14" y="12" width="292" height="146" fill="#fafafa" stroke="#000" stroke-width="1.2"/>
+          <!-- a little terminal row -->
+          <g>
+            <rect x="40" y="55" width="9" height="60" fill="#fff" stroke="#222"/>
+            <rect x="50" y="55" width="9" height="60" fill="#fff" stroke="#222"/>
+            <rect x="60" y="55" width="9" height="60" fill="#fff" stroke="#222"/>
+          </g>
+          <!-- the locked pair: stopper + label, moving together -->
+          <g class="anim-pair">
+            <rect x="74" y="48" width="14" height="74" fill="#fff" stroke="#222" stroke-width="1.2"/>
+            <text x="81" y="85" font-size="9" fill="#111" text-anchor="middle" transform="rotate(-90 81 85)">X-END</text>
+          </g>
+          <text x="220" y="80" font-size="12" fill="#235fd1" font-weight="bold" text-anchor="middle">a locked pair</text>
+          <text x="220" y="98" font-size="11" fill="#5b6470" text-anchor="middle">moves · rotates · deletes</text>
+          <text x="220" y="112" font-size="11" fill="#5b6470" text-anchor="middle">as one unit</text>
+        </svg>
+        <figcaption>“Stopper with Label” places two parts at once. They move, rotate and delete together — yet still count as 1 stopper + 1 label.</figcaption>
+      </figure>
+      <ul>
+        <li><b>Stopper</b> — a plain end bracket. <b>Stopper with Label</b> — a stopper plus a same-size marker plate.</li>
+        <li>After you add a "Stopper with Label", the <b>label is selected</b> so you can type its marker straight into the <b>Tag</b> box; it shows centred and vertical, like <code>X-END</code> above.</li>
+        <li>The two are a <b>locked pair</b>: drag, nudge, <kbd>+90°</kbd> or delete either one and both follow — but in a BOM / CAD <em>Count Block</em> they tally as two distinct items.</li>
+      </ul>
+    </section>
+
+    <section id="custom">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M8 12h8"/></svg>Custom parts (no CAD file yet)</h2>
+      <p class="lead">A blank device you size and name yourself — perfect for a part you don't have a drawing for.</p>
+      <figure>
+        <svg viewBox="0 0 340 200" role="img" aria-label="Anatomy of a custom part: tag above, part number centred inside">
+          <text x="60" y="40" font-size="13" fill="#111" font-weight="bold">U1</text>
+          <line x1="64" y1="44" x2="120" y2="64" stroke="#9aa3af" stroke-width="1"/>
+          <text x="150" y="32" font-size="11" fill="#5b6470">Tag — shown above, in plain sight</text>
+          <rect x="60" y="60" width="150" height="90" fill="#fff" stroke="#222" stroke-width="1.4"/>
+          <text x="135" y="108" font-size="15" fill="#111" text-anchor="middle">ACME-XR500</text>
+          <line x1="210" y1="105" x2="250" y2="105" stroke="#9aa3af" stroke-width="1"/>
+          <text x="256" y="100" font-size="11" fill="#5b6470">Part No —</text>
+          <text x="256" y="114" font-size="11" fill="#5b6470">centred, auto-fit</text>
+          <line x1="135" y1="150" x2="135" y2="176" stroke="#9aa3af" stroke-width="1"/>
+          <text x="135" y="190" font-size="11" fill="#5b6470" text-anchor="middle">Width &amp; Height — type any size</text>
+        </svg>
+        <figcaption>The part number sits centred inside and shrinks to fit — it never spills outside the box.</figcaption>
+      </figure>
+      <ul>
+        <li>Click <kbd>+ Custom part</kbd> (under <b>Objects</b> in the Library) to drop a blank rectangle.</li>
+        <li>In the panel set its <b>Part No</b>, <b>Width</b> and <b>Height</b> — each custom part is independent, so editing one never changes another.</li>
+        <li>The <b>Tag</b> shows above the box; the <b>Part No</b> is drawn centred inside and auto-fits so a long number simply shrinks to stay within the box.</li>
+      </ul>
+    </section>
+
+    <section id="validate">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l9 4v6c0 5-4 8-9 10-5-2-9-5-9-10V6z"/><path d="M12 8v5M12 16h.01"/></svg>Validation — warnings, not surprises</h2>
+      <p>When nothing is selected, the right panel lists problems so you can fix them before exporting:</p>
+      <ul>
+        <li><b style="color:var(--err)">Overlap</b> — two parts physically clash (highlighted red on the canvas).</li>
+        <li><b style="color:var(--warn)">Too tight</b> — a part is closer to a duct than its wiring clearance allows.</li>
+        <li><b style="color:var(--warn)">Overflow</b> — a row or the plate is too small for what's in it, itemised by how much.</li>
+      </ul>
+      <p>These <b>warn but allow</b> — the tool never silently moves, crops or overlaps your geometry. (Coincident markers like a stopper's label are excluded, so they don't raise false overlaps.)</p>
+    </section>
+
+    <section id="export">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Exporting your drawing</h2>
+      <table>
+        <tr><th>Format</th><th>How</th><th>Needs the service?</th></tr>
+        <tr><td><b>DXF</b></td><td>Pick scale <code>1:1</code> or <code>1:100</code>, then <kbd>Export DXF</kbd></td><td>Yes (ezdxf)</td></tr>
+        <tr><td><b>PDF</b></td><td>Pick paper <code>A4</code>/<code>A3</code>, then <kbd>PDF</kbd></td><td>No — in browser</td></tr>
+        <tr><td><b>PNG</b></td><td><kbd>PNG</kbd></td><td>No — in browser</td></tr>
+        <tr><td><b>SVG</b></td><td><kbd>SVG</kbd></td><td>No — in browser</td></tr>
+      </table>
+      <ul>
+        <li>The DXF opens in <b>GstarCAD 2020</b> with proper layers (<code>DUCT/EQUIP/TEXT/GROUND</code>) and prints black. Every part is a named block, so CAD's <em>Count Block</em> can tally them.</li>
+        <li>At <code>1:100</code> the geometry is drawn 1/100 size but dimension text still reads the real millimetres.</li>
+        <li>PDF/PNG/SVG auto-fit the chosen paper and print the resulting scale in the title line — and they work even if the DXF service is asleep.</li>
+      </ul>
+      <div class="note"><div class="t">DXF service</div>The status chip in the toolbar shows whether the ezdxf service is online. If it's offline, DXF is disabled but every other export still works; click the chip to retry (a free host may need a few seconds to wake).</div>
+    </section>
+
+    <section id="keys">
+      <h2><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>Keyboard &amp; mouse</h2>
+      <table>
+        <tr><th>Action</th><th>Shortcut</th></tr>
+        <tr><td>Move selection 1 mm</td><td><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd></td></tr>
+        <tr><td>Move selection 10 mm</td><td><kbd>Shift</kbd> + arrow</td></tr>
+        <tr><td>Add / remove from selection</td><td><kbd>Shift</kbd> + click</td></tr>
+        <tr><td>Delete selected</td><td><kbd>Delete</kbd> / <kbd>Backspace</kbd></td></tr>
+        <tr><td>Undo / Redo</td><td><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd></td></tr>
+        <tr><td>Zoom at cursor</td><td>Mouse wheel</td></tr>
+        <tr><td>Pan</td><td>Drag empty canvas</td></tr>
+      </table>
+      <p class="note tip" style="margin-top:18px"><span class="t">You're ready</span><br>That's the whole tool. Open the editor, drag a few parts around, and remember: whatever you draw here is exactly what the export carries to CAD.</p>
+    </section>
+
+  </main>
+</div>
+
+<footer>
+  Cabinet Layout Generator · manual-first cabinet layouts → real DXF · <a href="/">open the editor</a>
+</footer>
+
+</body>
+</html>
