@@ -4,7 +4,10 @@
  * plate and lets you edit it; editing shifts the duct below (and everything below
  * it) so the other rows keep their size and the plate grows/shrinks at that row.
  */
-import type { LayoutModel, Duct } from "./types";
+import type { LayoutModel, Duct, Library } from "./types";
+import { rotatedFootprint } from "./geometry";
+import { libItemSize } from "./resolve";
+import { railOffsetWithinFootprint } from "./align";
 
 /** Margin (mm) reserved outside the plate for the row-dimension stack. */
 export const ROW_DIM_MARGIN_MM = 90;
@@ -131,5 +134,35 @@ export function setRowHeight(
     elements: model.elements.map((e) => ({ ...e, y_mm: shift(e.y_mm) })),
     groups: model.groups.map((g) => ({ ...g, y_mm: shift(g.y_mm) })),
     // labels are stored as offsets from their anchor, so they follow automatically
+  };
+}
+
+/**
+ * Vertically centre the devices in a row: each element/set whose centre falls
+ * within the row band has its rail centerline placed on the row's centre line.
+ * (For parts with the default rail offset this centres the part geometrically.)
+ */
+export function centerRowDevices(model: LayoutModel, library: Library, rowIndex: number): LayoutModel {
+  const row = detectRows(model)[rowIndex];
+  if (!row) return model;
+  const rowCenter = (row.topY + row.bottomY) / 2;
+  const inBand = (y: number, h: number) => {
+    const c = y + h / 2;
+    return c >= row.topY && c <= row.bottomY;
+  };
+  return {
+    ...model,
+    elements: model.elements.map((e) => {
+      const item = library[e.lib_key];
+      if (!item) return e;
+      const f = rotatedFootprint(libItemSize(item), e.rot_deg);
+      return inBand(e.y_mm, f.h) ? { ...e, y_mm: +(rowCenter - railOffsetWithinFootprint(item, e.rot_deg)).toFixed(2) } : e;
+    }),
+    groups: model.groups.map((g) => {
+      const item = library[g.lib_key];
+      if (!item) return g;
+      const f = rotatedFootprint(libItemSize(item), g.rot_deg);
+      return inBand(g.y_mm, f.h) ? { ...g, y_mm: +(rowCenter - railOffsetWithinFootprint(item, g.rot_deg)).toFixed(2) } : g;
+    }),
   };
 }

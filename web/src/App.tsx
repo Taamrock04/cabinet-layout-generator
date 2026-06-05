@@ -4,7 +4,7 @@ import { SEED_LIBRARY, BANDS } from "./model/library";
 import type { Library, DxfLibItem } from "./model/types";
 import { validate } from "./model/validate";
 import { findOverlaps, tightClearances } from "./model/overlap";
-import { detectRows, setRowHeight, type RowResizeMode } from "./model/rows";
+import { detectRows, setRowHeight, centerRowDevices, type RowResizeMode } from "./model/rows";
 import {
   addElement, moveEntity, setRotation, deleteEntity,
   updateElement, updateDuct, updateGroup, addSet, addDuct, explodeGroup, addLabel, updateLabel, ductDimsFromBox,
@@ -433,8 +433,14 @@ export default function App() {
                     : "Borrow from next: the next row shrinks/grows by the same amount, keeping the total height fixed."}
                 </p>
                 {rows.map((r, i) => (
-                  <Num key={i} label={`Row ${i + 1} (mm)`} value={r.height} step={5}
-                    onChange={(v) => v > 0 && set(setRowHeight(model, i, v, rowMode))} />
+                  <div key={i} className="prow">
+                    <span className="plabel">Row {i + 1} (mm)</span>
+                    <span className="pval">
+                      <input type="number" step={5} value={r.height}
+                        onChange={(e) => { const v = parseFloat(e.target.value); if (!Number.isNaN(v) && v > 0) set(setRowHeight(model, i, v, rowMode)); }} />
+                      <button type="button" title="Centre this row's devices vertically" onClick={() => set(centerRowDevices(model, library, i))}>↕</button>
+                    </span>
+                  </div>
                 ))}
               </>
             )}

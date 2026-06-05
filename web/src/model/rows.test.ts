@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { detectRows, setRowHeight } from "./rows";
+import { detectRows, setRowHeight, centerRowDevices } from "./rows";
 import { addElement } from "./edit";
+import { SEED_LIBRARY } from "./library";
 import type { LayoutModel } from "./types";
 
 /** Tall plate with two horizontal ducts (40 thick) framing one row. */
@@ -88,5 +89,21 @@ describe("setRowHeight borrow mode", () => {
     const m = threeDucts();
     const m2 = setRowHeight(m, 1, 360, "borrow"); // last row, no next -> push
     expect(m2.ducts.find((d) => d.id === "H3")!.y_mm).toBe(800); // pushed down 100
+  });
+});
+
+describe("centerRowDevices", () => {
+  it("puts the rail centerline of in-row devices on the row centre", () => {
+    // row band 140..400, centre 270; relay h=80, default rail offset 40
+    let m = modelWithTwoDucts();
+    m = addElement(m, "relay_24vdc_2c", SEED_LIBRARY, 80, 150).model; // centre 190, in band
+    m = addElement(m, "relay_24vdc_2c", SEED_LIBRARY, 80, 600).model; // below the row
+    const inRow = m.elements[0];
+    const below = m.elements[1];
+
+    const m2 = centerRowDevices(m, SEED_LIBRARY, 0);
+    // newY = rowCentre(270) - railOffset(40) = 230 -> device centre 230+40 = 270
+    expect(m2.elements.find((e) => e.id === inRow.id)!.y_mm).toBe(230);
+    expect(m2.elements.find((e) => e.id === below.id)!.y_mm).toBe(600); // untouched
   });
 });
