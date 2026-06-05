@@ -137,6 +137,101 @@ export function setRowHeight(
   };
 }
 
+/* ----------------------------- auto-pack a row ----------------------------- */
+
+interface RowDev {
+  id: string;
+  w: number;          // footprint width (sets: total span)
+  railOff: number;    // rail offset within footprint
+  clearance: number;  // clearance to the duct (first device uses this)
+  gap: number;        // gap before this device (equipment gap)
+  curX: number;       // current x (for ordering)
+}
+
+/** Left inner edge (right of the left side duct) and right limit (left of the right side duct). */
+function rowEdges(model: LayoutModel): { leftEdge: number; rightLimit: number } {
+  const verts = model.ducts.filter((d) => d.rot_deg % 180 !== 0);
+  const left = verts.find((d) => d.x_mm === 0) ?? [...verts].sort((a, b) => a.x_mm - b.x_mm)[0];
+  const leftEdge = left ? left.x_mm + left.width_mm : 0;
+  const right = verts.length ? verts.reduce((m, d) => (d.x_mm > m.x_mm ? d : m)) : null;
+  const rightLimit = right ? right.x_mm : model.plate.width_mm;
+  return { leftEdge, rightLimit };
+}
+
+/** Devices (elements + sets) whose centre falls in the row band, ordered left→right. */
+function rowDevices(model: LayoutModel, library: Library, row: Row): RowDev[] {
+  const out: RowDev[] = [];
+  const inBand = (y: number, h: number) => y + h / 2 >= row.topY && y + h / 2 <= row.bottomY;
+  for (const e of model.elements) {
+    const item = library[e.lib_key];
+    if (!item) continue;
+    const f = rotatedFootprint(libItemSize(item), e.rot_deg);
+    if (inBand(e.y_mm, f.h)) out.push({ id: e.id, w: f.w, railOff: railOffsetWithinFootprint(item, e.rot_deg), clearance: e.clearance_to_duct_mm, gap: e.gap_before_mm, curX: e.x_mm });
+  }
+  for (const g of model.groups) {
+    const item = library[g.lib_key];
+    if (!item) continue;
+    const f = rotatedFootprint(libItemSize(item), g.rot_deg);
+    if (inBand(g.y_mm, f.h)) out.push({ id: g.id, w: g.count * f.w + (g.count - 1) * g.internal_gap_mm, railOff: railOffsetWithinFootprint(item, g.rot_deg), clearance: model.defaults.clearance_equipment_to_duct_mm, gap: model.defaults.gap_between_equipment_mm, curX: g.x_mm });
+  }
+  return out.sort((a, b) => a.curX - b.curX);
+}
+
+function neededWidth(devs: RowDev[]): number {
+  if (devs.length === 0) return 0;
+  let w = devs[0].clearance; // first device's clearance from the left duct
+  devs.forEach((d, i) => { w += (i > 0 ? d.gap : 0) + d.w; });
+  return w;
+}
+
+/** How far a row's devices exceed the space between the side ducts (0 if they fit). */
+export function rowOverflowMm(model: LayoutModel, library: Library, rowIndex: number): number {
+  const row = detectRows(model)[rowIndex];
+  if (!row) return 0;
+  const devs = rowDevices(model, library, row);
+  if (devs.length === 0) return 0;
+  const { leftEdge, rightLimit } = rowEdges(model);
+  return +Math.max(0, leftEdge + neededWidth(devs) - rightLimit).toFixed(1);
+}
+
+export interface PackResult {
+  model: LayoutModel;
+  overflowMm: number;
+}
+
+/**
+ * Auto-pack a row: flow its devices left→right from the left duct (each device's
+ * clearance, then the equipment gap between), rail-centred on the row. Packs from
+ * the left even if they overflow the right duct; the overflow amount is returned.
+ */
+export function packRow(model: LayoutModel, library: Library, rowIndex: number): PackResult {
+  const row = detectRows(model)[rowIndex];
+  if (!row) return { model, overflowMm: 0 };
+  const devs = rowDevices(model, library, row);
+  if (devs.length === 0) return { model, overflowMm: 0 };
+  const { leftEdge, rightLimit } = rowEdges(model);
+  const rowCenter = (row.topY + row.bottomY) / 2;
+
+  const nx: Record<string, number> = {};
+  const ny: Record<string, number> = {};
+  let x = leftEdge + devs[0].clearance;
+  devs.forEach((d, i) => {
+    if (i > 0) x += d.gap;
+    nx[d.id] = +x.toFixed(2);
+    ny[d.id] = +(rowCenter - d.railOff).toFixed(2);
+    x += d.w;
+  });
+
+  return {
+    model: {
+      ...model,
+      elements: model.elements.map((e) => (e.id in nx ? { ...e, x_mm: nx[e.id], y_mm: ny[e.id] } : e)),
+      groups: model.groups.map((g) => (g.id in nx ? { ...g, x_mm: nx[g.id], y_mm: ny[g.id] } : g)),
+    },
+    overflowMm: +Math.max(0, x - rightLimit).toFixed(1),
+  };
+}
+
 /**
  * Vertically centre the devices in a row: each element/set whose centre falls
  * within the row band has its rail centerline placed on the row's centre line.

@@ -9,6 +9,7 @@ import type { LayoutModel, Library } from "./types";
 import { placedBox, boxWithinPlate } from "./geometry";
 import { libItemSize } from "./resolve";
 import { findOverlaps, tightClearances } from "./overlap";
+import { detectRows, rowOverflowMm } from "./rows";
 
 export type IssueLevel = "error" | "warning";
 
@@ -110,6 +111,12 @@ export function validate(model: LayoutModel, library: Library): Issue[] {
     const el = model.elements.find((e) => e.id === id);
     add("warning", "CLEARANCE_TIGHT",
       `"${el?.tag || library[el?.lib_key ?? ""]?.name || id}" is closer than ${el?.clearance_to_duct_mm}mm to a duct`, id);
+  }
+
+  // --- row overflow: more devices than fit between the side ducts (warn-but-allow) ---
+  for (const r of detectRows(model)) {
+    const ov = rowOverflowMm(model, library, r.index);
+    if (ov > 0) add("warning", "ROW_OVERFLOW", `Row ${r.index + 1} is over-full by ${ov}mm — devices don't fit between the side ducts`);
   }
 
   return issues;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectRows, setRowHeight, centerRowDevices } from "./rows";
+import { detectRows, setRowHeight, centerRowDevices, packRow, rowOverflowMm } from "./rows";
 import { addElement } from "./edit";
 import { SEED_LIBRARY } from "./library";
 import type { LayoutModel } from "./types";
@@ -89,6 +89,35 @@ describe("setRowHeight borrow mode", () => {
     const m = threeDucts();
     const m2 = setRowHeight(m, 1, 360, "borrow"); // last row, no next -> push
     expect(m2.ducts.find((d) => d.id === "H3")!.y_mm).toBe(800); // pushed down 100
+  });
+});
+
+describe("packRow", () => {
+  // band 140..400, centre 270; left duct 0..60, right duct at x=740
+  function rowModel(): LayoutModel {
+    const m = modelWithTwoDucts();
+    return { ...m, ducts: [...m.ducts, { id: "R", x_mm: 740, y_mm: 0, length_mm: 1000, width_mm: 60, label_h_mm: 60, rot_deg: 90 }] };
+  }
+
+  it("flows devices from the left duct (clearance + gap), rail-centred", () => {
+    let m = rowModel();
+    m = addElement(m, "relay_24vdc_2c", SEED_LIBRARY, 300, 160).model; // 15.5 wide
+    m = addElement(m, "relay_24vdc_2c", SEED_LIBRARY, 120, 170).model;
+    const { model: m2, overflowMm } = packRow(m, SEED_LIBRARY, 0);
+    const xs = m2.elements.map((e) => e.x_mm).sort((a, b) => a - b);
+    expect(xs[0]).toBeCloseTo(63);    // leftEdge 60 + clearance 3
+    expect(xs[1]).toBeCloseTo(78.6);  // 63 + 15.5 + gap 0.1
+    expect(m2.elements.every((e) => e.y_mm === 230)).toBe(true); // rail-centred (270 - 40)
+    expect(overflowMm).toBe(0);
+  });
+
+  it("reports overflow when devices exceed the space, packing from the left anyway", () => {
+    let m = rowModel(); // usable ~ 680mm
+    for (let i = 0; i < 8; i += 1) m = addElement(m, "ground_bar_6", SEED_LIBRARY, 100 + i, 180).model; // 120 wide each
+    const { model: m2, overflowMm } = packRow(m, SEED_LIBRARY, 0);
+    expect(overflowMm).toBeGreaterThan(0);
+    expect(rowOverflowMm(m2, SEED_LIBRARY, 0)).toBeGreaterThan(0);
+    expect(Math.min(...m2.elements.map((e) => e.x_mm))).toBeCloseTo(63);
   });
 });
 
