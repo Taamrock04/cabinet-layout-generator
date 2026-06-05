@@ -46,6 +46,13 @@ def _num(v: object) -> str:
     return str(int(f)) if f.is_integer() else str(f)
 
 
+def _fit_font(text: str, w: float, h: float) -> float:
+    """Font height (mm) so `text` fits centered in a w x h box without overflowing.
+    Matches the web renderer's fitFontSize so the editor and DXF agree."""
+    n = max(1, len(text))
+    return max(2.5, min((0.85 * w) / (n * 0.62), 0.45 * h, 10.0))
+
+
 # --------------------------- geometry helpers ---------------------------
 
 def rotated_footprint(w: float, h: float, rot_deg: float) -> tuple[float, float]:
@@ -225,20 +232,23 @@ class DxfAssembler:
         self._place_block(block_name, w, h, x, y_top, rot)
 
         tag = el.get("tag")
-        if not tag:
-            return
-        if item.get("label_plate"):
-            # marker plate: tag centered + vertical (like "AC-L"), ~0.6x width
-            self._text(tag, x + fw / 2, y_top + fh / 2,
-                       min(6.0, 0.6 * w), rot_deg=(rot - 90) % 360)
-        else:
-            # top-left of the part, 2.5mm above; rotate if wider than the part
-            bl = ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT
-            tag_h, gap = 10.0, 2.5
-            if len(tag) * tag_h * 0.62 <= fw:
-                self._text(tag, x, y_top - gap, tag_h, align=bl)
+        if tag:
+            if item.get("label_plate"):
+                # marker plate: tag centered + vertical (like "AC-L"), ~0.6x width
+                self._text(tag, x + fw / 2, y_top + fh / 2,
+                           min(6.0, 0.6 * w), rot_deg=(rot - 90) % 360)
             else:
-                self._text(tag, x + tag_h * 0.75, y_top - gap, tag_h, rot_deg=90, align=bl)
+                # top-left of the part, 2.5mm above; rotate if wider than the part
+                bl = ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT
+                tag_h, gap = 10.0, 2.5
+                if len(tag) * tag_h * 0.62 <= fw:
+                    self._text(tag, x, y_top - gap, tag_h, align=bl)
+                else:
+                    self._text(tag, x + tag_h * 0.75, y_top - gap, tag_h, rot_deg=90, align=bl)
+        # custom placeholder: model / part-no centered inside, auto-fit to the box
+        name = item.get("name")
+        if item.get("custom") and name:
+            self._text(name, x + fw / 2, y_top + fh / 2, _fit_font(name, fw, fh))
 
     def _place_group(self, g: dict[str, Any]) -> None:
         item = self.library.get(g["lib_key"])

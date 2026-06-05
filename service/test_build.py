@@ -34,6 +34,7 @@ library = {
                           "width_mm": fc6a_w, "height_mm": fc6a_h, "block_ref": block_ref},
     "psu_switching_24vdc": {"source": "rect", "name": "PSU 24VDC", "width_mm": 40, "height_mm": 110},
     "term_degson_2c_2_5": {"source": "rect", "name": "Degson 2C", "width_mm": 5.2, "height_mm": 50},
+    "cust1": {"source": "rect", "name": "ACME-9", "width_mm": 60, "height_mm": 40, "custom": True},
 }
 
 # 3) a tall-enclosure demo model (mirrors the web demo)
@@ -53,6 +54,8 @@ model = {
         {"id": "e_plc90", "lib_key": "plc_idec_FC6A_D16", "tag": "PLC02", "x_mm": SD + 200, "y_mm": 170, "rot_deg": 90,
          "gap_before_mm": 0.1, "clearance_to_duct_mm": 3, "group_id": None, "locked": False},
         {"id": "e_psu", "lib_key": "psu_switching_24vdc", "tag": "PS01", "x_mm": SD + 400, "y_mm": 170, "rot_deg": 0,
+         "gap_before_mm": 0.1, "clearance_to_duct_mm": 3, "group_id": None, "locked": False},
+        {"id": "e_cust", "lib_key": "cust1", "tag": "U1", "x_mm": SD + 500, "y_mm": 320, "rot_deg": 0,
          "gap_before_mm": 0.1, "clearance_to_duct_mm": 3, "group_id": None, "locked": False},
     ],
     "groups": [
@@ -79,6 +82,9 @@ print("BLOCK INSERTS:", dict(by_block))
 assert by_block["EQ_plc_idec_FC6A_D16"] == 2, "two FC6A placements"
 assert by_block["EQ_psu_switching_24vdc"] == 1, "a rect part is a countable block"
 assert by_block["EQ_term_degson_2c_2_5"] == 12, "each set member is a countable block"
+assert by_block["EQ_cust1"] == 1, "a custom placeholder is its own countable block"
+texts = [e.dxf.text for e in msp if e.dxftype() == "TEXT"]
+assert "ACME-9" in texts, "custom part-no drawn centered inside the box"
 
 # the two FC6A INSERTs must NOT overlap (rotated-anchor fix)
 fc6a = [e for e in all_inserts if e.dxf.name == "EQ_plc_idec_FC6A_D16"]

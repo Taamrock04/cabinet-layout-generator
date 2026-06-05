@@ -20,7 +20,7 @@ import { snap, anchorHost, type EntityKind } from "../model/edit";
 import { computeSnap } from "../model/align";
 import { snapDuct } from "../model/ductsnap";
 import { rowDims, detectRows } from "../model/rows";
-import { contentWidth } from "../render/toSvg";
+import { contentWidth, fitFontSize } from "../render/toSvg";
 import { clampZoom } from "./zoom";
 
 export interface Selection {
@@ -414,6 +414,15 @@ export default function FabricStage(props: Props) {
           left: rotated ? el.x_mm + tagH * 0.75 : el.x_mm,
           top: el.y_mm - gap,
           angle: rotated ? -90 : 0,
+        }));
+      }
+      // custom/generic placeholder: model/part-no centered inside, auto-fit to the box
+      if (item && item.source === "rect" && item.custom && item.name) {
+        canvas.add(new FabricText(item.name, {
+          fontSize: fitFontSize(item.name, f.w, f.h), fontFamily: "Arial", fill: "#111",
+          selectable: false, evented: false,
+          originX: "center", originY: "center",
+          left: el.x_mm + f.w / 2, top: el.y_mm + f.h / 2,
         }));
       }
     }

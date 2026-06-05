@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildDemo } from "./demo";
 import { SEED_LIBRARY, BANDS } from "./model/library";
-import type { Library, DxfLibItem } from "./model/types";
+import type { Library, DxfLibItem, RectLibItem } from "./model/types";
 import { validate } from "./model/validate";
 import { findOverlaps, tightClearances } from "./model/overlap";
 import { detectRows, setRowHeight, centerRowDevices, packRow, type RowResizeMode } from "./model/rows";
@@ -208,6 +208,20 @@ export default function App() {
     set(m);
     setSelections([{ id: b.id, kind: "element" }]);
   }
+  /**
+   * A generic placeholder device (no CAD file yet): a per-instance rectangle the
+   * engineer sizes and names in the panel. Each click makes its own library item
+   * so editing one never touches another.
+   */
+  function addCustomPart() {
+    const key = `custom_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const item: RectLibItem = { lib_key: key, source: "rect", name: "", width_mm: 60, height_mm: 60, confirm: false, custom: true };
+    const lib2 = { ...library, [key]: item };
+    setLibrary(lib2);
+    const { model: m2, id } = addElement(model, key, lib2);
+    set(m2);
+    setSelections([{ id, kind: "element" }]);
+  }
 
   async function handleFile(file: File) {
     setUpload({ status: "uploading" });
@@ -348,6 +362,7 @@ export default function App() {
           <div className="band-name">Objects</div>
           <button type="button" className="lib-item" onClick={() => doAddDuct("horizontal")}>+ Wire duct (row)</button>
           <button type="button" className="lib-item" onClick={() => doAddDuct("vertical")}>+ Wire duct (vertical)</button>
+          <button type="button" className="lib-item" title="A blank device you size and name yourself (for parts without a CAD file)" onClick={addCustomPart}>+ Custom part</button>
         </div>
 
         <div className="addset">
@@ -392,7 +407,21 @@ export default function App() {
         ) : selEl ? (
           <>
             <h3>Element</h3>
-            <Row label="Library"><span className="ro">{library[selEl.lib_key]?.name ?? selEl.lib_key}</span></Row>
+            {(() => {
+              const it = library[selEl.lib_key];
+              if (it && it.source === "rect" && it.custom) {
+                const patch = (p: Partial<RectLibItem>) =>
+                  setLibrary((l) => ({ ...l, [selEl.lib_key]: { ...(l[selEl.lib_key] as RectLibItem), ...p } }));
+                return (
+                  <>
+                    <Field label="Part No" value={it.name} onChange={(v) => patch({ name: v })} />
+                    <Num label="Width (mm)" value={it.width_mm} onChange={(v) => patch({ width_mm: v })} />
+                    <Num label="Height (mm)" value={it.height_mm} onChange={(v) => patch({ height_mm: v })} />
+                  </>
+                );
+              }
+              return <Row label="Library"><span className="ro">{it?.name ?? selEl.lib_key}</span></Row>;
+            })()}
             <Field label="Tag" value={selEl.tag} onChange={(v) => set(updateElement(model, selEl.id, { tag: v }))} />
             <Num label="X (mm)" value={selEl.x_mm} onChange={(v) => set(updateElement(model, selEl.id, { x_mm: v }))} />
             <Num label="Y (mm)" value={selEl.y_mm} onChange={(v) => set(updateElement(model, selEl.id, { y_mm: v }))} />

@@ -164,6 +164,14 @@ export interface RectLibItem extends LibItemBase {
    * distinct countable part.)
    */
   label_plate?: boolean;
+  /**
+   * Generic placeholder device (no CAD yet): a plain rectangle the engineer sizes
+   * and names per-instance. Its `name` (model / part number) is drawn centered
+   * inside the box, auto-fit so it never overflows; the element `tag` still shows
+   * above. Each placement is its own library item, so editing one doesn't touch
+   * the others.
+   */
+  custom?: boolean;
 }
 
 export type LibItem = DxfLibItem | SymbolLibItem | RectLibItem;

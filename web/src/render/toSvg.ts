@@ -30,6 +30,17 @@ function tagText(text: string, cx: number, cy: number, rot: number, h = 6): stri
   return `<text x="${cx}" y="${cy}" font-size="${h}" text-anchor="middle" dominant-baseline="central"${t}>${esc(text)}</text>`;
 }
 
+/**
+ * Font size (mm) so `text` fits centered inside a w×h box without overflowing —
+ * limited by width (~0.62 em/char) and height, clamped to a readable range. Shared
+ * by the SVG renderer, the Fabric editor and the DXF assembler (identical math).
+ */
+export function fitFontSize(text: string, w: number, h: number): number {
+  const len = Math.max(1, text.length);
+  const byWidth = (0.85 * w) / (len * 0.62);
+  return Math.max(2.5, Math.min(byWidth, 0.45 * h, 10));
+}
+
 /** Rough Arial width of a tag, for the overflow→rotate decision. */
 export const TAG_FONT_MM = 10;
 export const TAG_GAP_MM = 2.5;
@@ -66,8 +77,13 @@ function renderElement(el: Element, library: Library): string {
       : "";
     return `<g data-id="${el.id}" data-layer="EQUIP">${body}${txt}</g>`;
   }
+  // tag above the part ("in plain sight")
   const label = el.tag ? partTag(el.tag, el.x_mm, el.y_mm, f.w) : "";
-  return `<g data-id="${el.id}" data-layer="EQUIP">${body}${label}</g>`;
+  // custom/generic placeholder: model/part-no centered inside, auto-fit to the box
+  const center = item.source === "rect" && item.custom && item.name
+    ? tagText(item.name, el.x_mm + f.w / 2, el.y_mm + f.h / 2, 0, fitFontSize(item.name, f.w, f.h))
+    : "";
+  return `<g data-id="${el.id}" data-layer="EQUIP">${body}${label}${center}</g>`;
 }
 
 /**
