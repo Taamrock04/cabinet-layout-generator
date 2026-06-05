@@ -78,17 +78,43 @@ export function detectRows(model: LayoutModel): Row[] {
 }
 
 /**
- * Set row `rowIndex`'s height. The duct below it (and every duct/element/group
- * below) shifts by the delta so the other rows keep their heights. The PLATE is
- * left unchanged — side ducts and plate size are not touched (content may move
- * past the plate edge, which validation flags as warn-but-allow).
+ * How a row resize reallocates space:
+ *  - "push": shift the duct below + everything beneath it (other rows keep their
+ *    heights; bottom content may move past the plate edge). Plate unchanged.
+ *  - "borrow": move only the duct between this row and the next, so the next row
+ *    shrinks/grows by the opposite amount — total height (and the plate) fixed.
  */
-export function setRowHeight(model: LayoutModel, rowIndex: number, newHeight: number): LayoutModel {
+export type RowResizeMode = "push" | "borrow";
+
+/**
+ * Set row `rowIndex`'s height. The PLATE is always left unchanged (side ducts and
+ * plate size untouched). See {@link RowResizeMode} for how rows below react.
+ */
+export function setRowHeight(
+  model: LayoutModel,
+  rowIndex: number,
+  newHeight: number,
+  mode: RowResizeMode = "push",
+): LayoutModel {
   const rows = detectRows(model);
   const row = rows[rowIndex];
   if (!row || newHeight <= 0) return model;
   const delta = +(newHeight - row.height).toFixed(2);
   if (delta === 0) return model;
+
+  if (mode === "borrow") {
+    const next = rows[rowIndex + 1];
+    if (next) {
+      // can't borrow more than the next row has (would make it negative)
+      if (next.height - delta < 0) return model;
+      // move only the duct between the two rows; everything else stays put
+      return {
+        ...model,
+        ducts: model.ducts.map((d) => (d.id === row.bottomDuctId ? { ...d, y_mm: +(d.y_mm + delta).toFixed(2) } : d)),
+      };
+    }
+    // last row: nothing below to borrow from → fall through to push
+  }
 
   const cutY = row.bottomY; // top of the bottom duct: shift things at/below this
   const shift = (y: number) => (y >= cutY ? +(y + delta).toFixed(2) : y);

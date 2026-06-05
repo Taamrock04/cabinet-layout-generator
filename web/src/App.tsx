@@ -4,7 +4,7 @@ import { SEED_LIBRARY, BANDS } from "./model/library";
 import type { Library, DxfLibItem } from "./model/types";
 import { validate } from "./model/validate";
 import { findOverlaps, tightClearances } from "./model/overlap";
-import { detectRows, setRowHeight } from "./model/rows";
+import { detectRows, setRowHeight, type RowResizeMode } from "./model/rows";
 import {
   addElement, moveEntity, setRotation, deleteEntity,
   updateElement, updateDuct, updateGroup, addSet, addDuct, explodeGroup, addLabel, updateLabel, ductDimsFromBox,
@@ -44,10 +44,11 @@ export default function App() {
   const [upload, setUpload] = useState<Upload>({ status: "idle" });
   const [dragOver, setDragOver] = useState(false);
   const [rowEdit, setRowEdit] = useState<{ index: number; x: number; y: number; value: number } | null>(null);
+  const [rowMode, setRowMode] = useState<RowResizeMode>("push");
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   function commitRowEdit(v: number) {
-    if (rowEdit && v > 0) set(setRowHeight(model, rowEdit.index, v));
+    if (rowEdit && v > 0) set(setRowHeight(model, rowEdit.index, v, rowMode));
     setRowEdit(null);
   }
 
@@ -420,10 +421,20 @@ export default function App() {
             {rows.length > 0 && (
               <>
                 <h3 className="mt">Rows ({rows.length})</h3>
-                <p className="muted small">Height of each device band (between horizontal ducts). Changing one moves the duct below it and shifts everything below.</p>
+                <Row label="Resize mode">
+                  <select value={rowMode} onChange={(e) => setRowMode(e.target.value as RowResizeMode)}>
+                    <option value="push">Push below</option>
+                    <option value="borrow">Borrow from next</option>
+                  </select>
+                </Row>
+                <p className="muted small">
+                  {rowMode === "push"
+                    ? "Push below: the duct below moves and everything beneath shifts (plate unchanged; bottom content may go off-plate)."
+                    : "Borrow from next: the next row shrinks/grows by the same amount, keeping the total height fixed."}
+                </p>
                 {rows.map((r, i) => (
                   <Num key={i} label={`Row ${i + 1} (mm)`} value={r.height} step={5}
-                    onChange={(v) => v > 0 && set(setRowHeight(model, i, v))} />
+                    onChange={(v) => v > 0 && set(setRowHeight(model, i, v, rowMode))} />
                 ))}
               </>
             )}

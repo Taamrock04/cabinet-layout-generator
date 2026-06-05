@@ -57,3 +57,36 @@ describe("setRowHeight", () => {
     expect(setRowHeight(m, 0, 0)).toBe(m);
   });
 });
+
+describe("setRowHeight borrow mode", () => {
+  // three horizontal ducts (40 thick) -> two rows
+  function threeDucts(): LayoutModel {
+    const m = modelWithTwoDucts();
+    return { ...m, ducts: [...m.ducts, { id: "H3", x_mm: 60, y_mm: 700, length_mm: 680, width_mm: 40, label_h_mm: 60, rot_deg: 0 }] };
+  }
+
+  it("growing a row in borrow mode shrinks the next row; total + plate unchanged", () => {
+    const m = threeDucts();
+    const before = detectRows(m); // row0: 140..400 (260); row1: 440..700 (260)
+    expect(before.map((r) => r.height)).toEqual([260, 260]);
+
+    const m2 = setRowHeight(m, 0, 360, "borrow"); // +100 to row0
+    const after = detectRows(m2);
+    expect(after[0].height).toBe(360);
+    expect(after[1].height).toBe(160); // 260 - 100
+    expect(m2.plate.height_mm).toBe(1000); // unchanged
+    expect(m2.ducts.find((d) => d.id === "H3")!.y_mm).toBe(700); // bottom duct unchanged
+    expect(m2.ducts.find((d) => d.id === "H2")!.y_mm).toBe(500); // only the middle duct moved
+  });
+
+  it("refuses to borrow more than the next row has", () => {
+    const m = threeDucts();
+    expect(setRowHeight(m, 0, 600, "borrow")).toBe(m); // needs 340 from a 260 row -> ignored
+  });
+
+  it("borrow on the last row falls back to push", () => {
+    const m = threeDucts();
+    const m2 = setRowHeight(m, 1, 360, "borrow"); // last row, no next -> push
+    expect(m2.ducts.find((d) => d.id === "H3")!.y_mm).toBe(800); // pushed down 100
+  });
+});
