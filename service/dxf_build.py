@@ -177,6 +177,37 @@ class DxfAssembler:
         self._imported_blocks[lib_key] = block_name
         return block_name
 
+    def _unit_block(self, lib_key: str, w: float, h: float) -> str:
+        """A named block holding the part's rectangle at local origin (0,0)-(w,h)
+        in real mm, so rect/symbol parts are countable INSERTs in CAD (BOM /
+        'Count Block'), just like uploaded-DXF parts. Base point = lower-left."""
+        cached = self._imported_blocks.get(lib_key)
+        if cached:
+            return cached
+        name = f"EQ_{lib_key}"
+        if name not in self.doc.blocks:
+            blk = self.doc.blocks.new(name=name)
+            blk.add_lwpolyline(
+                [(0, 0), (w, 0), (w, h), (0, h), (0, 0)],
+                dxfattribs={"layer": "EQUIP", "color": MONO},
+            )
+            blk.block.dxf.base_point = (0, 0, 0)
+        self._imported_blocks[lib_key] = name
+        return name
+
+    def _place_block(self, block_name: str, w: float, h: float,
+                     x: float, y_top: float, rot: float) -> None:
+        """Insert a block so its rotated footprint's top-left lands at (x, y_top)
+        in editor coords. Same anchor math for uploaded-DXF and unit blocks."""
+        fw, fh = rotated_footprint(w, h, rot)
+        ll_x, ll_y = self._to_dxf(x, y_top + fh)  # footprint lower-left in DXF
+        ins_x, ins_y = insert_point_for(self._s(w), self._s(h), rot, ll_x, ll_y)
+        self.msp.add_blockref(
+            block_name, (ins_x, ins_y),
+            dxfattribs={"layer": "EQUIP", "rotation": rot,
+                        "xscale": self.scale, "yscale": self.scale},
+        )
+
     def _place_element(self, el: dict[str, Any]) -> None:
         item = self.library.get(el["lib_key"])
         if item is None:
@@ -186,40 +217,44 @@ class DxfAssembler:
         fw, fh = rotated_footprint(w, h, rot)
         x, y_top = float(el["x_mm"]), float(el["y_mm"])
 
+        # every part is a named block (EQ_<lib_key>) so it is countable in CAD
         if item["source"] == "dxf" and item.get("block_ref"):
             block_name = self._import_block(el["lib_key"], item["block_ref"])
-            # desired footprint lower-left in DXF coords
-            ll_x, ll_y = self._to_dxf(x, y_top + fh)
-            ins_x, ins_y = insert_point_for(self._s(w), self._s(h), rot, ll_x, ll_y)
-            self.msp.add_blockref(
-                block_name, (ins_x, ins_y),
-                dxfattribs={"layer": "EQUIP", "rotation": rot,
-                            "xscale": self.scale, "yscale": self.scale},
-            )
         else:
-            # rect / symbol: draw the footprint rectangle + tag
-            self._rect(x, y_top, fw, fh, "EQUIP")
-            tag = el.get("tag")
-            if tag:
-                # top-left of the part, 2.5mm above; rotate if wider than the part
-                bl = ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT
-                tag_h, gap = 10.0, 2.5
-                if len(tag) * tag_h * 0.62 <= fw:
-                    self._text(tag, x, y_top - gap, tag_h, align=bl)
-                else:
-                    self._text(tag, x + tag_h * 0.75, y_top - gap, tag_h, rot_deg=90, align=bl)
+            block_name = self._unit_block(el["lib_key"], w, h)
+        self._place_block(block_name, w, h, x, y_top, rot)
+
+        tag = el.get("tag")
+        if not tag:
+            return
+        if item.get("label_plate"):
+            # marker plate: tag centered + vertical (like "AC-L"), ~0.6x width
+            self._text(tag, x + fw / 2, y_top + fh / 2,
+                       min(6.0, 0.6 * w), rot_deg=(rot - 90) % 360)
+        else:
+            # top-left of the part, 2.5mm above; rotate if wider than the part
+            bl = ezdxf.enums.TextEntityAlignment.BOTTOM_LEFT
+            tag_h, gap = 10.0, 2.5
+            if len(tag) * tag_h * 0.62 <= fw:
+                self._text(tag, x, y_top - gap, tag_h, align=bl)
+            else:
+                self._text(tag, x + tag_h * 0.75, y_top - gap, tag_h, rot_deg=90, align=bl)
 
     def _place_group(self, g: dict[str, Any]) -> None:
         item = self.library.get(g["lib_key"])
         if item is None:
             return
         w, h = float(item["width_mm"]), float(item["height_mm"])
-        fw, fh = rotated_footprint(w, h, float(g.get("rot_deg", 0)))
+        rot = float(g.get("rot_deg", 0))
+        fw, _fh = rotated_footprint(w, h, rot)
         x = float(g["x_mm"])
         y_top = float(g["y_mm"])
         gap = float(g.get("internal_gap_mm", 0.1))
+        block_name = (self._import_block(g["lib_key"], item["block_ref"])
+                      if item["source"] == "dxf" and item.get("block_ref")
+                      else self._unit_block(g["lib_key"], w, h))
         for _ in range(int(g["count"])):
-            self._rect(x, y_top, fw, fh, "EQUIP")
+            self._place_block(block_name, w, h, x, y_top, rot)
             x += fw + gap
 
     def _place_duct(self, d: dict[str, Any]) -> None:

@@ -9,6 +9,7 @@ Writes out_service.dxf (+ .svg), audits it, and asserts placement.
 from __future__ import annotations
 
 import sys
+from collections import Counter
 
 import ezdxf
 from ezdxf import bbox
@@ -70,16 +71,24 @@ auditor = doc.audit()
 print("AUDIT errors:", len(auditor.errors))
 assert not auditor.errors, "assembled DXF must audit clean"
 
-# 5) assert the two FC6A INSERTs do NOT overlap (rotated-anchor fix)
+# 5) every part is now a named block (EQ_<lib_key>) so CAD can Count Block
 msp = doc.modelspace()
-inserts = [e for e in msp if e.dxftype() == "INSERT"]
+all_inserts = [e for e in msp if e.dxftype() == "INSERT"]
+by_block = Counter(e.dxf.name for e in all_inserts)
+print("BLOCK INSERTS:", dict(by_block))
+assert by_block["EQ_plc_idec_FC6A_D16"] == 2, "two FC6A placements"
+assert by_block["EQ_psu_switching_24vdc"] == 1, "a rect part is a countable block"
+assert by_block["EQ_term_degson_2c_2_5"] == 12, "each set member is a countable block"
+
+# the two FC6A INSERTs must NOT overlap (rotated-anchor fix)
+fc6a = [e for e in all_inserts if e.dxf.name == "EQ_plc_idec_FC6A_D16"]
 boxes = []
-for ins in inserts:
+for ins in fc6a:
     ext = bbox.extents([ins], fast=False)
     boxes.append((ins.dxf.rotation, ext.extmin, ext.extmax))
-    print(f"  INSERT rot={ins.dxf.rotation:>3.0f} ll=({ext.extmin.x:.1f},{ext.extmin.y:.1f}) "
+    print(f"  FC6A rot={ins.dxf.rotation:>3.0f} ll=({ext.extmin.x:.1f},{ext.extmin.y:.1f}) "
           f"size={ext.size.x:.1f}x{ext.size.y:.1f}")
-assert len(inserts) == 2
+assert len(fc6a) == 2
 (_, amin, amax), (_, bmin, bmax) = boxes[0], boxes[1]
 overlap = amin.x < bmax.x and amax.x > bmin.x and amin.y < bmax.y and amax.y > bmin.y
 assert not overlap, "the two FC6A placements must NOT overlap (rotated-anchor fix)"
