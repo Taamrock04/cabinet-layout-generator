@@ -13,6 +13,7 @@ const DIM_LINE_OFFSET_MM = 40;
 
 /** Geometry for one row's dimension annotation (right margin), in plate mm coords. */
 export interface RowDim {
+  index: number;     // row index (for click-to-edit)
   value: number;     // the height shown
   plateRightX: number; // plate right edge (extension lines start here)
   dimX: number;      // x of the vertical dimension line
@@ -28,6 +29,7 @@ export function rowDims(model: LayoutModel): RowDim[] {
   const W = model.plate.width_mm;
   const dimX = W + DIM_LINE_OFFSET_MM;
   return detectRows(model).map((r) => ({
+    index: r.index,
     value: r.height,
     plateRightX: W,
     dimX,

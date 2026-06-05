@@ -55,7 +55,11 @@ interface Props {
   onResizeDuct: (id: string, x_mm: number, y_mm: number, boxW: number, boxH: number) => void;
   /** A library part dropped onto the canvas at (x_mm, y_mm). */
   onDropPart: (libKey: string, x_mm: number, y_mm: number) => void;
+  /** Clicked a row dimension — open an inline editor at the cursor. */
+  onEditRow: (index: number, clientX: number, clientY: number, value: number) => void;
 }
+
+type RowDimMeta = { index: number; value: number };
 
 type Meta = { id: string; kind: EntityKind };
 
@@ -225,6 +229,12 @@ export default function FabricStage(props: Props) {
     let lastX = 0;
     let lastY = 0;
     canvas.on("mouse:down", (opt) => {
+      const rd = (opt.target as unknown as { rowdim?: RowDimMeta })?.rowdim;
+      if (rd) {
+        const ev = opt.e as MouseEvent;
+        ref.current.onEditRow(rd.index, ev.clientX, ev.clientY, rd.value);
+        return; // don't pan or change selection
+      }
       const meta = (opt.target as unknown as { data?: Meta })?.data;
       if (meta) {
         // selection is driven here (not Fabric's group selection): Shift = additive
@@ -397,6 +407,14 @@ export default function FabricStage(props: Props) {
         left: d.textX, top: d.midY, originX: "left", originY: "center",
         fontSize: 16, fontFamily: "Arial", fill: "#111", selectable: false, evented: false,
       }));
+      // invisible click target over the whole dimension strip → inline edit
+      const hit = new Rect({
+        left: d.plateRightX, top: d.topY, width: d.textX + 50 - d.plateRightX, height: d.bottomY - d.topY,
+        originX: "left", originY: "top", fill: "rgba(47,111,237,0.001)",
+        selectable: false, evented: true, hoverCursor: "pointer",
+      });
+      (hit as unknown as { rowdim: RowDimMeta }).rowdim = { index: d.index, value: d.value };
+      canvas.add(hit);
     }
 
     applySelection(canvas); // re-apply selection visuals onto the fresh objects

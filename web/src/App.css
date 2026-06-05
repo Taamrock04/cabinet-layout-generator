@@ -138,3 +138,9 @@
 
 .muted { color: #6b7280; }
 .small { font-size: 12px; }
+
+/* inline row-height editor (opens at the clicked dimension) */
+.rowedit {
+  position: fixed; z-index: 200; width: 72px; font-size: 13px; padding: 4px 6px;
+  border: 1px solid #2f6fed; border-radius: 4px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}

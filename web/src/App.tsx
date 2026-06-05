@@ -43,7 +43,13 @@ export default function App() {
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const [upload, setUpload] = useState<Upload>({ status: "idle" });
   const [dragOver, setDragOver] = useState(false);
+  const [rowEdit, setRowEdit] = useState<{ index: number; x: number; y: number; value: number } | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
+
+  function commitRowEdit(v: number) {
+    if (rowEdit && v > 0) set(setRowHeight(model, rowEdit.index, v));
+    setRowEdit(null);
+  }
 
   function acceptDroppedFile(files: FileList) {
     const f = [...files].find((file) => file.name.toLowerCase().endsWith(".dxf"));
@@ -341,6 +347,7 @@ export default function App() {
             onZoomChange={setZoom}
             onResizeDuct={resizeDuct}
             onDropPart={dropPart}
+            onEditRow={(index, x, y, value) => setRowEdit({ index, x, y, value })}
           />
         </div>
       </main>
@@ -434,6 +441,16 @@ export default function App() {
       {upload.status === "confirm" && (
         <UploadModal result={upload.result} defaultName={upload.name}
           onConfirm={confirmUpload} onCancel={() => setUpload({ status: "idle" })} />
+      )}
+
+      {rowEdit && (
+        <input className="rowedit" type="number" autoFocus defaultValue={rowEdit.value}
+          style={{ left: rowEdit.x, top: rowEdit.y }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitRowEdit(parseFloat((e.target as HTMLInputElement).value));
+            else if (e.key === "Escape") setRowEdit(null);
+          }}
+          onBlur={(e) => commitRowEdit(parseFloat(e.target.value))} />
       )}
     </div>
   );
