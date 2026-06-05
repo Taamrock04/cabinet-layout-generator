@@ -7,7 +7,7 @@ import { findOverlaps, tightClearances } from "./model/overlap";
 import { detectRows, setRowHeight, centerRowDevices, packRow, type RowResizeMode } from "./model/rows";
 import {
   addElement, moveEntity, setRotation, deleteEntity,
-  updateElement, updateDuct, updateGroup, addSet, addDuct, explodeGroup, addLabel, updateLabel, ductDimsFromBox,
+  updateElement, updateDuct, updateGroup, addSet, addDuct, fitDuctWidth, explodeGroup, addLabel, updateLabel, ductDimsFromBox,
   type EntityKind,
 } from "./model/edit";
 import { useHistory } from "./editor/useHistory";
@@ -386,7 +386,12 @@ export default function App() {
             <Num label="Length (mm)" value={selDuct.length_mm} onChange={(v) => set(updateDuct(model, selDuct.id, { length_mm: v }))} />
             <Num label="Width (mm)" value={selDuct.width_mm} onChange={(v) => set(updateDuct(model, selDuct.id, { width_mm: v }))} />
             <Num label="Label H (mm)" value={selDuct.label_h_mm} onChange={(v) => set(updateDuct(model, selDuct.id, { label_h_mm: v }))} />
-            <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
+            <div className="panel-actions">
+              {selDuct.rot_deg % 180 === 0 && (
+                <button type="button" title="Re-span this duct exactly between the side ducts" onClick={() => set(fitDuctWidth(model, selDuct.id))}>Fit width</button>
+              )}
+              <button type="button" className="danger" onClick={deleteSelected}>Delete</button>
+            </div>
           </>
         ) : selGroup ? (
           <>

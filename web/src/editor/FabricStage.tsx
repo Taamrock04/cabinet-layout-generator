@@ -18,6 +18,7 @@ import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
 import { snap, anchorHost, type EntityKind } from "../model/edit";
 import { computeSnap } from "../model/align";
+import { snapDuct } from "../model/ductsnap";
 import { rowDims, detectRows } from "../model/rows";
 import { contentWidth } from "../render/toSvg";
 
@@ -189,6 +190,14 @@ export default function FabricStage(props: Props) {
       if (!t) return;
       clearGuides();
       const meta = (t as unknown as { data?: Meta }).data;
+      if (ref.current.alignEnabled && meta?.kind === "duct") {
+        const s = snapDuct(ref.current.model, meta.id, t.left ?? 0, t.top ?? 0);
+        if (s) {
+          t.set({ left: s.x, top: s.y });
+          drawGuides(s.vGuide, s.hGuide);
+          return;
+        }
+      }
       if (ref.current.alignEnabled && meta?.kind === "element") {
         const s = computeSnap(ref.current.model, ref.current.library, meta.id, t.left ?? 0, t.top ?? 0, detectRows(ref.current.model));
         if (s) {

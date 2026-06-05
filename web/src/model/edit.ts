@@ -110,21 +110,39 @@ export function updateDuct(model: LayoutModel, id: string, patch: Partial<Duct>)
   return { ...model, ducts: model.ducts.map((d) => (d.id === id ? { ...d, ...patch } : d)) };
 }
 
-/** Add a wire duct. Horizontal ones become row separators; vertical ones are side/feed ducts. */
+/** Inner edges between the left and right vertical (side) ducts. */
+function sideInnerEdges(model: LayoutModel): { innerLeft: number; innerRight: number } {
+  const verts = model.ducts.filter((d) => d.rot_deg % 180 !== 0);
+  const leftV = verts.find((d) => d.x_mm === 0) ?? [...verts].sort((a, b) => a.x_mm - b.x_mm)[0];
+  const rightV = verts.length ? verts.reduce((m, d) => (d.x_mm > m.x_mm ? d : m)) : null;
+  return {
+    innerLeft: leftV ? leftV.x_mm + leftV.width_mm : 0,
+    innerRight: rightV ? rightV.x_mm : model.plate.width_mm,
+  };
+}
+
+/** Add a wire duct. Horizontal row ducts auto-span between the side ducts. */
 export function addDuct(model: LayoutModel, orientation: "horizontal" | "vertical"): { model: LayoutModel; id: string } {
   const id = uid("d");
-  const side = model.ducts.find((d) => d.x_mm === 0); // left side duct (for inset)
-  const sw = side?.width_mm ?? 0;
   let duct: Duct;
   if (orientation === "horizontal") {
     const hd = model.ducts.filter((d) => d.rot_deg % 180 === 0).sort((a, b) => a.y_mm - b.y_mm);
     const last = hd[hd.length - 1];
     const y = last ? last.y_mm + last.width_mm + 200 : 100; // 200mm default row below the last
-    duct = { id, x_mm: sw, y_mm: y, length_mm: Math.max(100, model.plate.width_mm - 2 * sw), width_mm: 40, label_h_mm: 60, rot_deg: 0 };
+    const { innerLeft, innerRight } = sideInnerEdges(model);
+    duct = { id, x_mm: innerLeft, y_mm: y, length_mm: Math.max(100, +(innerRight - innerLeft).toFixed(2)), width_mm: 40, label_h_mm: 60, rot_deg: 0 };
   } else {
     duct = { id, x_mm: Math.round(model.plate.width_mm / 2), y_mm: 0, length_mm: model.plate.height_mm, width_mm: 60, label_h_mm: 60, rot_deg: 90 };
   }
   return { model: { ...model, ducts: [...model.ducts, duct] }, id };
+}
+
+/** Re-span a horizontal duct exactly between the side ducts (the "Fit width" action). */
+export function fitDuctWidth(model: LayoutModel, ductId: string): LayoutModel {
+  const d = model.ducts.find((x) => x.id === ductId);
+  if (!d || d.rot_deg % 180 !== 0) return model; // horizontal only
+  const { innerLeft, innerRight } = sideInnerEdges(model);
+  return updateDuct(model, ductId, { x_mm: innerLeft, length_mm: Math.max(0, +(innerRight - innerLeft).toFixed(2)) });
 }
 
 /** Snap a duct's drawn thickness to the standard faces {30,40,60}. (brief §7 Req5) */
