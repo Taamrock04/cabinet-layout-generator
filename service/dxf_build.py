@@ -26,12 +26,16 @@ from ezdxf.addons.importer import Importer
 
 import store
 
+# All layers use ACI colour 7 (white/black): it shows white on GstarCAD's dark
+# modelspace and prints BLACK on white paper / PDF. Layer NAMES are kept so the
+# engineer can still select/toggle by layer; only the colour is unified.
+MONO = 7
 LAYERS = {
-    "PLATE": 8,
-    "DUCT": 5,     # blue
-    "EQUIP": 7,    # white/black
-    "TEXT": 3,     # green
-    "GROUND": 2,   # yellow
+    "PLATE": MONO,
+    "DUCT": MONO,
+    "EQUIP": MONO,
+    "TEXT": MONO,
+    "GROUND": MONO,
 }
 TEXT_STYLE = "ARIAL"
 
@@ -162,6 +166,12 @@ class DxfAssembler:
         for e in src.modelspace():
             importer.import_entity(e, block)
         importer.finalize()
+        # force the re-embedded geometry to mono colour so it prints black too
+        for ent in block:
+            try:
+                ent.dxf.color = MONO
+            except (AttributeError, ValueError):
+                pass
         # normalize base point to part lower-left so placement is predictable
         block.block.dxf.base_point = (ext.extmin.x, ext.extmin.y, 0)
         self._imported_blocks[lib_key] = block_name
