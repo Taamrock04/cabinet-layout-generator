@@ -186,6 +186,18 @@ export default function App() {
     set(m2);
     setSelections([{ id, kind: "element" }]);
   }
+  /**
+   * "Stopper with Label" = a stopper + a coincident label plate, as TWO objects so
+   * BOM / CAD block-count tallies 1 stopper + 1 label (not "1 combo"). The label is
+   * selected so you can type its marker straight away.
+   */
+  function addStopperWithLabel() {
+    const a = addElement(model, "term_stopper", library);
+    const st = a.model.elements.find((e) => e.id === a.id);
+    const b = addElement(a.model, "term_stopper_label", library, st?.x_mm, st?.y_mm);
+    set(b.model);
+    setSelections([{ id: b.id, kind: "element" }]);
+  }
 
   async function handleFile(file: File) {
     setUpload({ status: "uploading" });
@@ -313,6 +325,12 @@ export default function App() {
                   {it.name}{it.confirm ? " *" : ""}
                 </button>
               ))}
+              {band.band === 4 && (
+                <button type="button" className="lib-item" title="Stopper + a coincident label plate (counts as 2: 1 stopper + 1 label)"
+                  onClick={addStopperWithLabel}>
+                  Stopper with Label
+                </button>
+              )}
             </div>
           );
         })}

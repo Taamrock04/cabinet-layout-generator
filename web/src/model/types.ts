@@ -150,6 +150,13 @@ export interface RectLibItem extends LibItemBase {
   source: "rect";
   width_mm: number;
   height_mm: number;
+  /**
+   * Label-plate parts (e.g. the stopper marker): instead of a tag above the part,
+   * the tag is drawn CENTERED and vertical (rotated, like "AC-L"), ~0.6× the
+   * width. Used for the coincident label in "Stopper with Label". (BOM: still a
+   * distinct countable part.)
+   */
+  label_plate?: boolean;
 }
 
 export type LibItem = DxfLibItem | SymbolLibItem | RectLibItem;

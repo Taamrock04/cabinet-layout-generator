@@ -36,6 +36,9 @@ export function placedBoxes(model: LayoutModel, library: Library): PlacedBox[] {
 
   for (const el of model.elements) {
     const item = library[el.lib_key];
+    // marker plates (e.g. stopper label) sit coincident on their host by design —
+    // not a physical collision, so they're excluded like text labels.
+    if (item && item.source === "rect" && item.label_plate) continue;
     const size = item ? libItemSize(item) : { w: 10, h: 10 };
     const f = rotatedFootprint(size, el.rot_deg);
     out.push({

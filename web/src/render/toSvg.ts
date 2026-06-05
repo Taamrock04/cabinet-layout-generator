@@ -59,6 +59,13 @@ function renderElement(el: Element, library: Library): string {
   const size = libItemSize(item);
   const f = rotatedFootprint(size, el.rot_deg);
   const body = `<rect x="${el.x_mm}" y="${el.y_mm}" width="${f.w}" height="${f.h}" fill="#fff" stroke="#222" stroke-width="0.4"/>`;
+  if (item.source === "rect" && item.label_plate) {
+    // marker plate: tag centered + vertical (like "AC-L"); blank until tagged
+    const txt = el.tag
+      ? tagText(el.tag, el.x_mm + f.w / 2, el.y_mm + f.h / 2, el.rot_deg - 90, Math.min(6, 0.6 * size.w))
+      : "";
+    return `<g data-id="${el.id}" data-layer="EQUIP">${body}${txt}</g>`;
+  }
   const label = el.tag ? partTag(el.tag, el.x_mm, el.y_mm, f.w) : "";
   return `<g data-id="${el.id}" data-layer="EQUIP">${body}${label}</g>`;
 }

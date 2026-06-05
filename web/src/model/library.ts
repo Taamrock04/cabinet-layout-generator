@@ -148,6 +148,19 @@ export const SEED_LIBRARY: Library = {
     lib_key: "term_block_40pin", source: "rect", name: "Terminal Block 40-pin",
     band: 4, width_mm: 60, height_mm: 40, confirm: true,
   },
+  // End stopper (DIN-rail end bracket). Real dims, so confirm:false.
+  term_stopper: {
+    lib_key: "term_stopper", source: "rect", name: "Stopper",
+    band: 4, width_mm: 9.5, height_mm: 43.2, confirm: false,
+  },
+  // The label/marker plate that pairs with a stopper — same footprint, centered
+  // vertical text. No `band` so it isn't a standalone palette button; it is placed
+  // (coincident with a stopper) only via the "Stopper with Label" action, and stays
+  // a distinct part so BOM / CAD block-count tallies it as "1 label".
+  term_stopper_label: {
+    lib_key: "term_stopper_label", source: "rect", name: "Label for Stopper",
+    width_mm: 9.5, height_mm: 43.2, confirm: false, label_plate: true,
+  },
 
   // --- Band 5: power distribution ---
   term_fuse_holder: {

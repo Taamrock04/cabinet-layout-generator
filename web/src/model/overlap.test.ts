@@ -34,4 +34,10 @@ describe("findOverlaps", () => {
     const res = findOverlaps(model, SEED_LIBRARY);
     expect(res.pairs.length).toBeGreaterThanOrEqual(1);
   });
+
+  it("does NOT flag a label plate coincident with its stopper (by design)", () => {
+    const a = addElement(newModel("T"), "term_stopper", SEED_LIBRARY, 200, 300);
+    const b = addElement(a.model, "term_stopper_label", SEED_LIBRARY, 200, 300); // same spot
+    expect(findOverlaps(b.model, SEED_LIBRARY).pairs).toHaveLength(0);
+  });
 });
