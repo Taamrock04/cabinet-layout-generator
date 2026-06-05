@@ -62,7 +62,20 @@ export function moveEntity(
   y_mm: number,
 ): LayoutModel {
   if (kind === "element") {
-    return { ...model, elements: model.elements.map((e) => (e.id === id ? { ...e, x_mm, y_mm } : e)) };
+    const moved = model.elements.find((e) => e.id === id);
+    if (!moved) return model;
+    // a paired element drags its pair-mates (the locked unit) by the same delta
+    const dx = x_mm - moved.x_mm;
+    const dy = y_mm - moved.y_mm;
+    const pid = moved.pair_id ?? null;
+    return {
+      ...model,
+      elements: model.elements.map((e) => {
+        if (e.id === id) return { ...e, x_mm, y_mm };
+        if (pid && e.pair_id === pid) return { ...e, x_mm: +(e.x_mm + dx).toFixed(2), y_mm: +(e.y_mm + dy).toFixed(2) };
+        return e;
+      }),
+    };
   }
   if (kind === "duct") {
     return { ...model, ducts: model.ducts.map((d) => (d.id === id ? { ...d, x_mm, y_mm } : d)) };
@@ -244,11 +257,20 @@ export function updateLabel(model: LayoutModel, id: string, patch: Partial<Label
 
 /** Delete an entity; also drops labels anchored to it and clears group refs. */
 export function deleteEntity(model: LayoutModel, kind: EntityKind, id: string): LayoutModel {
+  if (kind === "element") {
+    // deleting one of a locked pair removes the whole unit (no orphan label)
+    const target = model.elements.find((e) => e.id === id);
+    const pid = target?.pair_id ?? null;
+    const removeIds = new Set<string>([id]);
+    if (pid) for (const e of model.elements) if (e.pair_id === pid) removeIds.add(e.id);
+    const labels = model.labels.filter((l) => {
+      const [k, ref] = l.anchor.split(":");
+      return !(k === "element" && removeIds.has(ref));
+    });
+    return { ...model, elements: model.elements.filter((e) => !removeIds.has(e.id)), labels };
+  }
   const anchor = `${kind}:${id}`;
   const labels = model.labels.filter((l) => l.anchor !== anchor && l.id !== (kind === "label" ? id : ""));
-  if (kind === "element") {
-    return { ...model, elements: model.elements.filter((e) => e.id !== id), labels };
-  }
   if (kind === "duct") {
     return { ...model, ducts: model.ducts.filter((d) => d.id !== id), labels };
   }

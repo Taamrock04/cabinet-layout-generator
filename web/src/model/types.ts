@@ -62,6 +62,13 @@ export interface Element {
   clearance_to_duct_mm: number;
   /** Non-null if this element belongs to an (exploded) group. */
   group_id: string | null;
+  /**
+   * Elements sharing a `pair_id` are a locked unit: they move together (drag /
+   * arrow-nudge) and delete together, while staying distinct objects for BOM /
+   * CAD block-count. Used by "Stopper with Label" (a stopper + its coincident
+   * label plate). Undefined/null = standalone.
+   */
+  pair_id?: string | null;
   locked: boolean;
 }
 

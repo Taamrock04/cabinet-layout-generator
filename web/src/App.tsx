@@ -145,9 +145,16 @@ export default function App() {
     if (selections.length === 0) return;
     let m = model;
     const r = (n: number) => +n.toFixed(2);
+    // selected elements + their locked pair-mates, deduped (so a pair moves once)
+    const elIds = new Set<string>();
+    for (const s of selections) if (s.kind === "element") {
+      elIds.add(s.id);
+      const e = m.elements.find((x) => x.id === s.id);
+      if (e?.pair_id) for (const o of m.elements) if (o.pair_id === e.pair_id) elIds.add(o.id);
+    }
+    for (const id of elIds) { const e = m.elements.find((x) => x.id === id); if (e) m = updateElement(m, id, { x_mm: r(e.x_mm + dx), y_mm: r(e.y_mm + dy) }); }
     for (const s of selections) {
-      if (s.kind === "element") { const e = m.elements.find((x) => x.id === s.id); if (e) m = updateElement(m, s.id, { x_mm: r(e.x_mm + dx), y_mm: r(e.y_mm + dy) }); }
-      else if (s.kind === "duct") { const d = m.ducts.find((x) => x.id === s.id); if (d) m = updateDuct(m, s.id, { x_mm: r(d.x_mm + dx), y_mm: r(d.y_mm + dy) }); }
+      if (s.kind === "duct") { const d = m.ducts.find((x) => x.id === s.id); if (d) m = updateDuct(m, s.id, { x_mm: r(d.x_mm + dx), y_mm: r(d.y_mm + dy) }); }
       else if (s.kind === "group") { const g = m.groups.find((x) => x.id === s.id); if (g) m = updateGroup(m, s.id, { x_mm: r(g.x_mm + dx), y_mm: r(g.y_mm + dy) }); }
       else if (s.kind === "label") { const l = m.labels.find((x) => x.id === s.id); if (l) m = updateLabel(m, s.id, { dx_mm: r(l.dx_mm + dx), dy_mm: r(l.dy_mm + dy) }); }
     }
@@ -192,10 +199,13 @@ export default function App() {
    * selected so you can type its marker straight away.
    */
   function addStopperWithLabel() {
+    const pid = `pair_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
     const a = addElement(model, "term_stopper", library);
     const st = a.model.elements.find((e) => e.id === a.id);
     const b = addElement(a.model, "term_stopper_label", library, st?.x_mm, st?.y_mm);
-    set(b.model);
+    let m = updateElement(b.model, a.id, { pair_id: pid });
+    m = updateElement(m, b.id, { pair_id: pid });
+    set(m);
     setSelections([{ id: b.id, kind: "element" }]);
   }
 

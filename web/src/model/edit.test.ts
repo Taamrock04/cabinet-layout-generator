@@ -107,3 +107,32 @@ describe("addLabel + moveEntity(label)", () => {
     expect(m3.labels[0]).toMatchObject({ dx_mm: 20, dy_mm: -10 });
   });
 });
+
+describe("locked pairs (pair_id)", () => {
+  function pair() {
+    const a = addElement(newModel("T"), "term_stopper", SEED_LIBRARY, 100, 200);
+    const b = addElement(a.model, "term_stopper_label", SEED_LIBRARY, 100, 200);
+    let m = updateElement(b.model, a.id, { pair_id: "p1" });
+    m = updateElement(m, b.id, { pair_id: "p1" });
+    return { m, stopper: a.id, label: b.id };
+  }
+
+  it("moving one paired element moves its pair-mate by the same delta", () => {
+    const { m, stopper, label } = pair();
+    const m2 = moveEntity(m, "element", stopper, 150, 260); // delta +50, +60
+    expect(m2.elements.find((e) => e.id === stopper)).toMatchObject({ x_mm: 150, y_mm: 260 });
+    expect(m2.elements.find((e) => e.id === label)).toMatchObject({ x_mm: 150, y_mm: 260 });
+  });
+
+  it("deleting one of a pair removes the whole unit", () => {
+    const { m } = pair();
+    expect(deleteEntity(m, "element", m.elements[1].id).elements).toHaveLength(0);
+  });
+
+  it("an unpaired element moves alone", () => {
+    const a = addElement(newModel("T"), "term_stopper", SEED_LIBRARY, 100, 200);
+    const b = addElement(a.model, "mcp_2p", SEED_LIBRARY, 100, 200);
+    const m2 = moveEntity(b.model, "element", a.id, 150, 200);
+    expect(m2.elements.find((e) => e.id === b.id)).toMatchObject({ x_mm: 100, y_mm: 200 });
+  });
+});

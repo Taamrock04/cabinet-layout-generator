@@ -184,6 +184,24 @@ export default function FabricStage(props: Props) {
       if (railY !== null) canvas.add(mk({ left: 0, top: railY - 0.3, width: W, height: 0.6 }));   // rail centerline (horizontal)
     };
 
+    // drag a paired element (e.g. stopper+label) → its pair-mates' canvas objects
+    // follow live by the same delta, so the locked unit moves as one during drag.
+    const movePairLive = (t: FabricObject, id: string) => {
+      const m = ref.current.model;
+      const moved = m.elements.find((e) => e.id === id);
+      if (!moved?.pair_id) return;
+      const dx = (t.left ?? 0) - moved.x_mm;
+      const dy = (t.top ?? 0) - moved.y_mm;
+      for (const e of m.elements) {
+        if (e.id === id || e.pair_id !== moved.pair_id) continue;
+        const obj = canvas.getObjects().find((o) => {
+          const d = (o as unknown as { data?: Meta }).data;
+          return d?.kind === "element" && d.id === e.id;
+        });
+        if (obj) { obj.set({ left: e.x_mm + dx, top: e.y_mm + dy }); obj.setCoords(); }
+      }
+    };
+
     // move snapping (object space = mm): rail-snap to a neighbour, else grid
     canvas.on("object:moving", (e) => {
       const t = e.target;
@@ -203,11 +221,13 @@ export default function FabricStage(props: Props) {
         if (s) {
           t.set({ left: s.x, top: s.y });
           drawGuides(s.seamX, s.railY);
+          movePairLive(t, meta.id);
           return;
         }
       }
       const step = ref.current.snapStep;
       if (step > 0) t.set({ left: snap(t.left ?? 0, step), top: snap(t.top ?? 0, step) });
+      if (meta?.kind === "element") movePairLive(t, meta.id);
     });
     canvas.on("object:modified", (e) => {
       const t = e.target;
