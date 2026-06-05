@@ -56,6 +56,10 @@ it only ever structures messy input into the validated schema — it never emits
 - Side ducts + row ducts; drag a duct to snap it **exactly onto any of the 4 plate borders**
 - Row ducts **auto-span between the side ducts** on creation — no hand-measuring; one click **Fit width** re-spans
 
+**Terminal accessories & custom parts**
+- **Stopper** and **Stopper with Label** — the stopper and its centered-marker label **move, rotate and delete as a locked pair**, while staying two parts so the BOM counts 1 stopper + 1 label
+- **Custom part** — a blank device you **size and name yourself** (model/part-no centered inside, auto-fit so it never overflows; tag above in plain sight), for any part you don't have a CAD file for yet
+
 **Rows**
 - Rows are auto-detected between ducts, with each row height **dimensioned in the right margin**
 - Click a row dimension to edit its height; **Pack** a row from the left duct; **center** its devices vertically
@@ -64,7 +68,7 @@ it only ever structures messy input into the validated schema — it never emits
 - Overlap, too-tight clearance and plate-overflow are **flagged with a human-readable message**, never auto-cropped
 
 **Export — all from the one model**
-- **DXF** with layers `DUCT` / `EQUIP` / `TEXT` / `GROUND`, at 1:1 or 1:100, monochrome so it prints black in CAD
+- **DXF** with layers `DUCT` / `EQUIP` / `TEXT` / `GROUND`, at 1:1 or 1:100, monochrome so it prints black in CAD — every part is placed as a **named block** (`EQ_<key>`) so CAD **Count Block** / a future BOM can tally it
 - **PDF / PNG / SVG** in the browser, auto-fit to A4 / A3 with the resulting scale printed in the title line
 - **Upload your own equipment DXF** to add a measured part to the library
 
@@ -135,7 +139,8 @@ docs/       showcase drawings used in this README (generated from the model)
 
 **Phase 1 — complete.** Single-user editor (drag/drop, move/rotate/type-mm, sets, labels, ducts with
 border-snap + auto-span, rows with dimensions, packing, zoom/pan, overlap + clearance warnings),
-equipment DXF upload, and all four exports (DXF via the service; PDF/PNG/SVG in-browser).
+stopper/label locked pairs, user-defined custom parts, equipment DXF upload, and all four exports
+(DXF via the service — every part a named block; PDF/PNG/SVG in-browser).
 
 **Next — Phase 2:** Supabase auth + shared projects/library, then move hosting to Cloudflare. The AI
 socket stays off until then.

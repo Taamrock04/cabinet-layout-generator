@@ -58,12 +58,18 @@ Validate on every load, edit-commit, and before every export. Reject or flag —
   run and no upstream element moved.
 - Plate fit: on overflow, return an **itemized** message (what didn't fit, by how much). Boundary is
   **warn-but-allow** — flag, never silently crop or overlap.
+- Overlap detection ignores **non-physical markers** (text labels, and `label_plate` parts that sit
+  coincident on their host by design) — flag real collisions, not intentional coincidence.
+- A `pair_id` (e.g. stopper + label) is a locked unit: move / rotate / delete act on all pair-mates,
+  but each stays a distinct part for the BOM. `locked` pins a part so auto-pack flows others around it.
 - Auto-pack must honor `locked` elements and flow the rest around them.
 
 **Export integrity**
 - Exports render from the JSON model, never the canvas. Assert no editor artifacts (selection handles,
   grid, snap guides) appear in output.
-- DXF: blocks re-embedded as INSERTs with correct transform; layers `DUCT` / `EQUIP` / `TEXT` / `GROUND`.
+- DXF: **every part is a named block** `EQ_<lib_key>` (uploaded DXFs re-embedded; rect/symbol parts a
+  unit rectangle) inserted with the correct transform so CAD *Count Block* / a BOM can tally each part.
+  Tags and label/custom centre text are separate TEXT entities. Layers `DUCT` / `EQUIP` / `TEXT` / `GROUND`.
 - At scale 1:100, geometry is written at 1/100 size but **dimension text strings carry the real value**.
 - Coordinate origin converted in **exactly one place** (§4).
 

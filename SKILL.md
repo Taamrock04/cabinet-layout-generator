@@ -2,7 +2,7 @@
 doc: SKILL — Cabinet Layout Generator
 purpose: Architecture, pipeline, data shapes, and dependencies a fresh contributor needs to build/extend this tool
 status: Phase 1 complete — multi-user (Phase 2) not started
-last_updated: 2026-06-05
+last_updated: 2026-06-06
 ---
 
 # SKILL — Cabinet Layout Generator
@@ -87,11 +87,15 @@ JSON model  ⇄  Fabric.js canvas (render model → objects; user edits → muta
   • local re-flow: editing one gap_before_mm shifts only downstream-in-that-run, never the whole plate
   • equipment = move + rotate only (size changes only by typed mm); duct length + plate are the free-drag exceptions
   • ducts snap to plate borders + perpendicular ducts; row ducts auto-span between the side ducts
+  • locked pairs (stopper + its coincident label) move / rotate / delete as one unit, via a shared pair_id
+  • "Custom part" = a per-instance rect the engineer sizes + names (placeholder for parts without a CAD file)
 ```
 
 ### 3.3 Export
 ```
-DXF  → ezdxf service: assemble model + re-embed uploaded blocks as INSERTs; layers DUCT/EQUIP/TEXT/GROUND
+DXF  → ezdxf service: assemble model; EVERY part placed as a named block EQ_<lib_key> (uploaded DXFs
+        re-embedded, rect/symbol parts a unit rectangle) so CAD Count Block / BOM can tally each part.
+        Tags + label/custom centre text are separate TEXT. Layers DUCT/EQUIP/TEXT/GROUND.
         scale chooser 1:1 or 1:100 (default 1:100); at 1:100 geometry is 1/100 size but DIMENSION TEXT
         READS THE REAL VALUE ("1500", not "15"); all layers monochrome (ACI 7) so it prints black. GstarCAD 2020.
 PDF  → in-browser: model → SVG → vector PDF (svg2pdf.js + jsPDF); paper A3/A4 auto fit-to-page;
@@ -146,15 +150,22 @@ gaps, clearances, ducts, groups, labels are first-class. (Implemented in `web/sr
 - Duct `width_mm` snaps to the house faces (custom via dialog); `label_h_mm` is **label-only** (no geometry).
   `length_mm` is the only geometry that may be free-dragged (besides the plate).
 - Group `kind:"set"` inserts as one object; `exploded:true` lets members be edited individually.
+- Element `pair_id` (optional): elements sharing it are a **locked unit** — they move / rotate / delete
+  together (e.g. a stopper + its coincident label) — while staying distinct parts for the BOM.
 - Label `anchor` is `element:<id>` or `group:<id>`; the label moves with its anchor; exported as DXF TEXT.
 
 ### Library item shapes (resolved by `lib_key`)
 ```json
 { "lib_key": "...", "source": "dxf",  "width_mm": 95, "height_mm": 90, "block_ref": "<id>", "svg_ref": "..." }
 { "lib_key": "...", "source": "rect", "width_mm": 60, "height_mm": 40, "name": "Terminal Block 40 Pin" }
+{ "lib_key": "...", "source": "rect", "width_mm": 9.5, "height_mm": 43.2, "name": "Label for Stopper", "label_plate": true }
+{ "lib_key": "...", "source": "rect", "width_mm": 60, "height_mm": 40, "name": "ACME-XR500", "custom": true }
 ```
 - `dxf` — service holds block + SVG + measured size.
-- `rect` — typed width/height/name; name auto-fits inside, never overflows.
+- `rect` — typed width/height/name; the part `tag` is drawn above.
+- `rect` + `label_plate` — marker plate: the tag is drawn **centered + vertical** (the stopper label).
+- `rect` + `custom` — a user-defined placeholder; its `name` (model/part-no) is drawn **centered, auto-fit**
+  so it never overflows, with the tag still above. One unique library item is created per placement.
 
 The seed library lives in `web/src/model/library.ts`. Replace every `confirm:true` dimension with
 datasheet values before production use.
@@ -168,8 +179,9 @@ datasheet values before production use.
 - **Fixed band order top→bottom** (the default for auto-pack): Power & protection → Control/comms
   (PLC, IO, modem) → Relays → Terminal blocks (bulk) → Power distribution → Ground bar.
 - **DIN module ≈ 18 mm/module.** Components clip to a 35 mm top-hat rail.
-- **Terminal accessories** (end covers/plates/markers) are **BOM-only, near-zero geometry** — they
-  count in a BOM but are not placed shapes.
+- **Terminal accessories:** the **Stopper** (9.5 × 43.2) and its **Label** marker plate are *placed*
+  parts (Band 4) — drawn and individually counted. Accessories with negligible geometry (end covers,
+  end plates, stopper-markers) stay **BOM-only** — they count in a BOM but are not placed shapes.
 
 **Auto-pack (optional):** flow components left→right within the fixed bands; 0.1 mm gap, ≥3 mm to ducts;
 honor `locked`; validate plate fit and report overflow itemized (never silently crop). It only seeds a
@@ -200,7 +212,8 @@ draft the engineer then edits — never required, never the final word.
    Rotated footprint uses the **rotated bounding box** (90° swaps W×H).
 4. **Local re-flow isolation** — editing one `gap_before_mm` shifts only downstream-in-that-run, never global.
 5. **Coordinate origin converted in exactly one place** — editor top-left ↔ DXF bottom-left.
-6. **DXF re-embeds blocks as INSERTs** with the correct transform; layered DUCT/EQUIP/TEXT/GROUND.
+6. **DXF places every part as a named block** `EQ_<lib_key>` (uploaded DXFs re-embedded, rect/symbol a
+   unit rectangle) with the correct transform; layered DUCT/EQUIP/TEXT/GROUND; tags/centre text separate.
 7. **At 1:100 the geometry scales but dimension text reads the real value.**
 8. **ezdxf service validates the token + restricts CORS** — it is not an open DXF endpoint.
 9. **Plate boundary = warn-but-allow** (flag overflow; don't silently block or overlap).
@@ -214,7 +227,8 @@ draft the engineer then edits — never required, never the final word.
   in GstarCAD 2020; units, base point and fidelity confirmed.
 - **Phase 1 — editor + ezdxf service — complete.** JSON model + Fabric canvas + library (rect +
   uploaded-DXF via service) + ducts (length drag / width snap / border-snap / auto-span) + sets + labels
-  + per-gap/clearance editing + rows with dimensions + packing + all exports. Hosted on Vercel + Render.
+  + per-gap/clearance editing + rows with dimensions + packing + stopper/label locked pairs + custom
+  placeholder parts + all exports (DXF = every part a named block). Hosted on Vercel + Render.
 - **Phase 2 — multi-user (next):** Supabase auth (Google/GitHub + allowlist + display name) + shared
   projects + shared/project-local library + audit log + keep-alive cron. Move frontend to **Cloudflare
   Pages** (settle host/domain before wiring OAuth).
