@@ -11,7 +11,8 @@ import {
   type EntityKind,
 } from "./model/edit";
 import { useHistory } from "./editor/useHistory";
-import FabricStage, { type Selection, clampZoom } from "./editor/FabricStage";
+import FabricStage, { type Selection } from "./editor/FabricStage";
+import { clampZoom } from "./editor/zoom";
 import UploadModal from "./editor/UploadModal";
 import { exportDxf, uploadDxf, ping, type DxfScale, type UploadResult } from "./service/dxfClient";
 import { downloadSvg, downloadPng, downloadPdf } from "./export/inBrowser";

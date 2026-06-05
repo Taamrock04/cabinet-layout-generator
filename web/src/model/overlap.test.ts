@@ -22,8 +22,8 @@ describe("findOverlaps", () => {
 
   it("does NOT flag elements that merely touch edge-to-edge", () => {
     // mcp_2p is 36mm wide; place the second exactly at the first's right edge
-    let { model, id } = addElement(newModel("T"), "mcp_2p", SEED_LIBRARY, 100, 200);
-    model = moveEntity(model, "element", id, 100, 200);
+    const seed = addElement(newModel("T"), "mcp_2p", SEED_LIBRARY, 100, 200);
+    const model = moveEntity(seed.model, "element", seed.id, 100, 200);
     const added = addElement(model, "mcp_2p", SEED_LIBRARY, 136, 200);
     expect(findOverlaps(added.model, SEED_LIBRARY).pairs).toHaveLength(0);
   });

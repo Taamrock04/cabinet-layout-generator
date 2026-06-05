@@ -50,8 +50,8 @@ describe("move / rotate / update / delete", () => {
   });
 
   it("deleting an element also removes labels anchored to it", () => {
-    let { model, id } = base();
-    model = { ...model, labels: [{ id: "L1", text: "x", anchor: `element:${id}`, dx_mm: 0, dy_mm: 0, rot_deg: 0 }] };
+    const { model: base0, id } = base();
+    const model = { ...base0, labels: [{ id: "L1", text: "x", anchor: `element:${id}` as const, dx_mm: 0, dy_mm: 0, rot_deg: 0 }] };
     const m2 = deleteEntity(model, "element", id);
     expect(m2.elements).toHaveLength(0);
     expect(m2.labels).toHaveLength(0);

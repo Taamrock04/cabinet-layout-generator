@@ -21,15 +21,12 @@ import { computeSnap } from "../model/align";
 import { snapDuct } from "../model/ductsnap";
 import { rowDims, detectRows } from "../model/rows";
 import { contentWidth } from "../render/toSvg";
+import { clampZoom } from "./zoom";
 
 export interface Selection {
   id: string;
   kind: EntityKind;
 }
-
-export const MIN_ZOOM = 0.03;
-export const MAX_ZOOM = 8;
-export const clampZoom = (z: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
 interface Props {
   model: LayoutModel;
@@ -93,8 +90,11 @@ export default function FabricStage(props: Props) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const elRef = useRef<HTMLCanvasElement | null>(null);
   const canvasRef = useRef<Canvas | null>(null);
-  // latest values for event handlers without re-binding
+  // latest values for event handlers without re-binding. The ref is read only
+  // inside Fabric event callbacks (mouse:moving/up), never during render, so the
+  // "update ref during render" warning doesn't apply here.
   const ref = useRef(props);
+  // eslint-disable-next-line react-hooks/refs
   ref.current = props;
   // bumped each rebuild so stale async SVG loads can be discarded
   const genRef = useRef(0);
@@ -430,7 +430,6 @@ export default function FabricStage(props: Props) {
     canvas.requestRenderAll();
     // NOTE: selectedIds is intentionally NOT a dependency — selection changes must
     // not recreate objects (that interrupts an in-progress drag). See the effect below.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [model, library, overlapIds, tightIds]);
 
   // update selection visuals on selection change, without recreating objects
@@ -439,7 +438,7 @@ export default function FabricStage(props: Props) {
     if (!canvas) return;
     applySelection(canvas);
     canvas.requestRenderAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // selection-only: deliberately independent of model/library so it never rebuilds objects
   }, [selectedIds]);
 
   function handleDrop(e: React.DragEvent) {
