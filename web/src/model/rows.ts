@@ -79,8 +79,9 @@ export function detectRows(model: LayoutModel): Row[] {
 
 /**
  * Set row `rowIndex`'s height. The duct below it (and every duct/element/group
- * below) shifts by the delta; vertical side ducts spanning the cut are extended;
- * the plate height changes by the delta. Other rows keep their heights.
+ * below) shifts by the delta so the other rows keep their heights. The PLATE is
+ * left unchanged — side ducts and plate size are not touched (content may move
+ * past the plate edge, which validation flags as warn-but-allow).
  */
 export function setRowHeight(model: LayoutModel, rowIndex: number, newHeight: number): LayoutModel {
   const rows = detectRows(model);
@@ -93,14 +94,13 @@ export function setRowHeight(model: LayoutModel, rowIndex: number, newHeight: nu
   const shift = (y: number) => (y >= cutY ? +(y + delta).toFixed(2) : y);
 
   return {
-    ...model,
-    plate: { ...model.plate, height_mm: +(model.plate.height_mm + delta).toFixed(2) },
+    ...model, // plate unchanged
     ducts: model.ducts.map((d) => {
       const horizontal = d.rot_deg % 180 === 0;
       if (horizontal) return { ...d, y_mm: shift(d.y_mm) };
-      // vertical duct: at/below the cut → shift; spanning the cut → grow its length
-      if (d.y_mm >= cutY) return { ...d, y_mm: +(d.y_mm + delta).toFixed(2) };
-      return { ...d, length_mm: +(d.length_mm + delta).toFixed(2) };
+      // vertical (side/feed) ducts: shift only if entirely below the cut; full-height
+      // side ducts (which span the cut) are left as-is so the plate frame is unchanged.
+      return d.y_mm >= cutY ? { ...d, y_mm: +(d.y_mm + delta).toFixed(2) } : d;
     }),
     elements: model.elements.map((e) => ({ ...e, y_mm: shift(e.y_mm) })),
     groups: model.groups.map((g) => ({ ...g, y_mm: shift(g.y_mm) })),

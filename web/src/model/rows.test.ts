@@ -29,7 +29,7 @@ describe("detectRows", () => {
 });
 
 describe("setRowHeight", () => {
-  it("growing a row pushes the bottom duct + below down and grows the plate", () => {
+  it("growing a row shifts the bottom duct + below down, leaving the plate untouched", () => {
     let m = modelWithTwoDucts();
     // a device in the row (stays) and one below H2 (shifts)
     m = addElement(m, "relay_24vdc_2c", { relay_24vdc_2c: { lib_key: "relay_24vdc_2c", name: "R", source: "rect", width_mm: 15.5, height_mm: 80 } }, 80, 200).model;
@@ -40,16 +40,16 @@ describe("setRowHeight", () => {
     const m2 = setRowHeight(m, 0, 360); // +100
     expect(detectRows(m2)[0].height).toBe(360);
     expect(m2.ducts.find((d) => d.id === "H2")!.y_mm).toBe(500); // 400 + 100
-    expect(m2.plate.height_mm).toBe(1100); // 1000 + 100
-    expect(m2.ducts.find((d) => d.id === "L")!.length_mm).toBe(1100); // side duct grew
+    expect(m2.plate.height_mm).toBe(1000); // PLATE UNCHANGED
+    expect(m2.ducts.find((d) => d.id === "L")!.length_mm).toBe(1000); // side duct UNCHANGED
     expect(m2.elements.find((e) => e.id === inRow.id)!.y_mm).toBe(200); // unchanged
     expect(m2.elements.find((e) => e.id === below.id)!.y_mm).toBe(600); // 500 + 100
   });
 
-  it("shrinking pulls the bottom duct up and shrinks the plate", () => {
+  it("shrinking pulls the bottom duct up, leaving the plate untouched", () => {
     const m2 = setRowHeight(modelWithTwoDucts(), 0, 160); // 260 -> 160 = -100
     expect(m2.ducts.find((d) => d.id === "H2")!.y_mm).toBe(300);
-    expect(m2.plate.height_mm).toBe(900);
+    expect(m2.plate.height_mm).toBe(1000); // PLATE UNCHANGED
   });
 
   it("ignores non-positive heights", () => {
