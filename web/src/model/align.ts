@@ -8,6 +8,7 @@
  * share a y; the row then reads "next x = prev x + footprint width + gap".
  */
 import type { LayoutModel, Library, LibItem } from "./types";
+import type { Row } from "./rows"; // type-only (no runtime cycle)
 import { rotatedFootprint } from "./geometry";
 import { libItemSize } from "./resolve";
 
@@ -16,18 +17,11 @@ export const SNAP_X_MM = 8;
 /** Vertical rail-centerline proximity (mm) gating "same row". */
 export const SNAP_RAIL_MM = 60;
 
-export interface SnapGuide {
-  /** x of the seam between the two parts (vertical guide). */
-  seamX: number;
-  /** y of the shared rail centerline (horizontal guide). */
-  railY: number;
-  /** which side of the target the dragged part landed on. */
-  side: "left" | "right";
-}
 export interface SnapResult {
-  x: number;
-  y: number;
-  guide: SnapGuide;
+  x: number; // snapped x (= dragX if nothing horizontal snapped)
+  y: number; // snapped y (= dragY if nothing vertical snapped)
+  seamX: number | null; // draw a vertical guide here when a horizontal snap occurred
+  railY: number | null; // draw a horizontal guide here when a vertical snap occurred
 }
 
 const norm = (deg: number) => ((deg % 360) + 360) % 360;
@@ -47,9 +41,20 @@ function footprintW(item: LibItem, rotDeg: number): number {
   return rotatedFootprint(libItemSize(item), rotDeg).w;
 }
 
+/** Inner edge just right of the left side duct. */
+function leftDuctEdge(model: LayoutModel): number {
+  const verts = model.ducts.filter((d) => d.rot_deg % 180 !== 0);
+  const left = verts.find((d) => d.x_mm === 0) ?? [...verts].sort((a, b) => a.x_mm - b.x_mm)[0];
+  return left ? left.x_mm + left.width_mm : 0;
+}
+
 /**
- * Snap target for the element `draggedId` at top-left (dragX, dragY). Returns the
- * snapped position + guide, or null if nothing is near enough.
+ * Snap the element `draggedId` at top-left (dragX, dragY) while dragging:
+ *  - vertical: to the centre of the row band it's over (rail on the row centre);
+ *  - horizontal: to the left side duct (its clearance) or adjacent to a neighbour
+ *    in the same row (the equipment gap), whichever edge is nearest.
+ * Each axis snaps independently; returns null only if neither snaps. `rows` is
+ * passed in (from detectRows) to avoid an import cycle.
  */
 export function computeSnap(
   model: LayoutModel,
@@ -57,17 +62,42 @@ export function computeSnap(
   draggedId: string,
   dragX: number,
   dragY: number,
+  rows: Row[],
 ): SnapResult | null {
   const D = model.elements.find((e) => e.id === draggedId);
   const dItem = D && library[D.lib_key];
   if (!D || !dItem) return null;
 
   const gap = model.defaults.gap_between_equipment_mm;
-  const dW = footprintW(dItem, D.rot_deg);
+  const size = libItemSize(dItem);
+  const f = rotatedFootprint(size, D.rot_deg);
   const dRailOff = railOffsetWithinFootprint(dItem, D.rot_deg);
   const dRailNow = dragY + dRailOff;
+  const dCenterY = dragY + f.h / 2;
 
-  let best: { x: number; y: number; seamX: number; railY: number; side: "left" | "right"; dist: number } | null = null;
+  // --- vertical: snap to the centre of the band the dragged centre is over ---
+  let snapY = dragY;
+  let railY: number | null = null;
+  const row = rows.find((r) => dCenterY >= r.topY && dCenterY <= r.bottomY);
+  if (row) {
+    const rowCenter = (row.topY + row.bottomY) / 2;
+    if (Math.abs(dRailNow - rowCenter) <= SNAP_RAIL_MM) {
+      snapY = +(rowCenter - dRailOff).toFixed(2);
+      railY = rowCenter;
+    }
+  }
+
+  // --- horizontal: nearest of {left duct, a neighbour in the same row} ---
+  let snapX = dragX;
+  let seamX: number | null = null;
+  let bestDist = SNAP_X_MM;
+
+  const leftTarget = leftDuctEdge(model) + D.clearance_to_duct_mm;
+  if (Math.abs(dragX - leftTarget) <= bestDist) {
+    bestDist = Math.abs(dragX - leftTarget);
+    snapX = +leftTarget.toFixed(2);
+    seamX = leftDuctEdge(model);
+  }
 
   for (const E of model.elements) {
     if (E.id === draggedId) continue;
@@ -76,21 +106,16 @@ export function computeSnap(
     const eW = footprintW(eItem, E.rot_deg);
     const eRailY = E.y_mm + railOffsetWithinFootprint(eItem, E.rot_deg);
     if (Math.abs(eRailY - dRailNow) > SNAP_RAIL_MM) continue; // not the same row
-
-    const snappedY = eRailY - dRailOff;
-    const rightX = E.x_mm + eW + gap; // D sits to the right of E
-    const leftX = E.x_mm - gap - dW; // D sits to the left of E
-    const rightDist = Math.abs(dragX - rightX);
-    const leftDist = Math.abs(dragX - leftX);
-    const cand = rightDist <= leftDist
-      ? { x: rightX, seamX: E.x_mm + eW, side: "right" as const, dist: rightDist }
-      : { x: leftX, seamX: E.x_mm, side: "left" as const, dist: leftDist };
-
-    if (cand.dist <= SNAP_X_MM && (!best || cand.dist < best.dist)) {
-      best = { x: cand.x, y: snappedY, seamX: cand.seamX, railY: eRailY, side: cand.side, dist: cand.dist };
+    const cands: Array<{ x: number; seam: number }> = [
+      { x: E.x_mm + eW + gap, seam: E.x_mm + eW }, // right of E
+      { x: E.x_mm - gap - f.w, seam: E.x_mm },     // left of E
+    ];
+    for (const c of cands) {
+      const dist = Math.abs(dragX - c.x);
+      if (dist <= bestDist) { bestDist = dist; snapX = +c.x.toFixed(2); seamX = c.seam; }
     }
   }
 
-  if (!best) return null;
-  return { x: +best.x.toFixed(2), y: +best.y.toFixed(2), guide: { seamX: best.seamX, railY: best.railY, side: best.side } };
+  if (railY === null && seamX === null) return null;
+  return { x: snapX, y: snapY, seamX, railY };
 }

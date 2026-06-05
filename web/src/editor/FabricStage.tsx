@@ -18,7 +18,7 @@ import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
 import { snap, anchorHost, type EntityKind } from "../model/edit";
 import { computeSnap } from "../model/align";
-import { rowDims } from "../model/rows";
+import { rowDims, detectRows } from "../model/rows";
 import { contentWidth } from "../render/toSvg";
 
 export interface Selection {
@@ -175,12 +175,12 @@ export default function FabricStage(props: Props) {
     const clearGuides = () => {
       canvas.getObjects().filter((o) => (o as unknown as { __guide?: boolean }).__guide).forEach((o) => canvas.remove(o));
     };
-    const drawGuides = (seamX: number, railY: number) => {
+    const drawGuides = (seamX: number | null, railY: number | null) => {
       const W = ref.current.model.plate.width_mm;
       const H = ref.current.model.plate.height_mm;
       const mk = (props: object) => { const r = new Rect({ fill: "#e08600", selectable: false, evented: false, originX: "left", originY: "top", ...props }); (r as unknown as { __guide: boolean }).__guide = true; return r; };
-      canvas.add(mk({ left: seamX - 0.3, top: 0, width: 0.6, height: H }));   // seam (vertical)
-      canvas.add(mk({ left: 0, top: railY - 0.3, width: W, height: 0.6 }));    // rail centerline (horizontal)
+      if (seamX !== null) canvas.add(mk({ left: seamX - 0.3, top: 0, width: 0.6, height: H }));  // seam (vertical)
+      if (railY !== null) canvas.add(mk({ left: 0, top: railY - 0.3, width: W, height: 0.6 }));   // rail centerline (horizontal)
     };
 
     // move snapping (object space = mm): rail-snap to a neighbour, else grid
@@ -190,10 +190,10 @@ export default function FabricStage(props: Props) {
       clearGuides();
       const meta = (t as unknown as { data?: Meta }).data;
       if (ref.current.alignEnabled && meta?.kind === "element") {
-        const s = computeSnap(ref.current.model, ref.current.library, meta.id, t.left ?? 0, t.top ?? 0);
+        const s = computeSnap(ref.current.model, ref.current.library, meta.id, t.left ?? 0, t.top ?? 0, detectRows(ref.current.model));
         if (s) {
           t.set({ left: s.x, top: s.y });
-          drawGuides(s.guide.seamX, s.guide.railY);
+          drawGuides(s.seamX, s.railY);
           return;
         }
       }
