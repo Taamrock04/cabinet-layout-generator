@@ -129,6 +129,13 @@ describe("locked pairs (pair_id)", () => {
     expect(deleteEntity(m, "element", m.elements[1].id).elements).toHaveLength(0);
   });
 
+  it("rotating one of a pair rotates both to the same angle", () => {
+    const { m, stopper, label } = pair();
+    const m2 = setRotation(m, "element", label, 90);
+    expect(m2.elements.find((e) => e.id === stopper)).toMatchObject({ rot_deg: 90 });
+    expect(m2.elements.find((e) => e.id === label)).toMatchObject({ rot_deg: 90 });
+  });
+
   it("an unpaired element moves alone", () => {
     const a = addElement(newModel("T"), "term_stopper", SEED_LIBRARY, 100, 200);
     const b = addElement(a.model, "mcp_2p", SEED_LIBRARY, 100, 200);

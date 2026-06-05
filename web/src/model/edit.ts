@@ -107,7 +107,15 @@ export function anchorHost(model: LayoutModel, anchor: string): { x_mm: number; 
 export function setRotation(model: LayoutModel, kind: EntityKind, id: string, deg: number): LayoutModel {
   const rot = ((deg % 360) + 360) % 360;
   if (kind === "element") {
-    return { ...model, elements: model.elements.map((e) => (e.id === id ? { ...e, rot_deg: rot } : e)) };
+    // a locked pair (stopper + coincident label) rotates as one unit
+    const target = model.elements.find((e) => e.id === id);
+    const pid = target?.pair_id ?? null;
+    return {
+      ...model,
+      elements: model.elements.map((e) =>
+        e.id === id || (pid && e.pair_id === pid) ? { ...e, rot_deg: rot } : e,
+      ),
+    };
   }
   if (kind === "group") {
     return { ...model, groups: model.groups.map((g) => (g.id === id ? { ...g, rot_deg: rot } : g)) };
