@@ -9,7 +9,7 @@
  * into a mm-unit jsPDF) and a rasterised PNG (mm → px at the chosen DPI).
  */
 import type { LayoutModel, Library } from "../model/types";
-import { renderPlateBody } from "./toSvg";
+import { renderPlateBody, contentWidth } from "./toSvg";
 
 export type Paper = "A4" | "A3";
 
@@ -62,7 +62,7 @@ function orient(pageW: number, pageH: number, plateW: number, plateH: number) {
 }
 
 export function composePageSvg(model: LayoutModel, library: Library, paper: Paper): PageResult {
-  const plateW = model.plate.width_mm;
+  const plateW = contentWidth(model); // include the row-dimension margin
   const plateH = model.plate.height_mm;
   const fit = bestFit(paper, plateW, plateH);
   const scaleN = Math.max(1, Math.round(1 / fit.scale));

@@ -12,12 +12,14 @@
  *  - zoom buttons/Fit  → driven by the `zoom` / `fitNonce` props from App
  */
 import { useEffect, useRef } from "react";
-import { Canvas, Rect, Textbox, FabricText, loadSVGFromString, util, type FabricObject } from "fabric";
+import { Canvas, Rect, Textbox, FabricText, Line, loadSVGFromString, util, type FabricObject } from "fabric";
 import type { LayoutModel, Library } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
 import { snap, anchorHost, type EntityKind } from "../model/edit";
 import { computeSnap } from "../model/align";
+import { rowDims } from "../model/rows";
+import { contentWidth } from "../render/toSvg";
 
 export interface Selection {
   id: string;
@@ -97,7 +99,7 @@ export default function FabricStage(props: Props) {
     if (!canvas) return;
     const cw = canvas.getWidth();
     const ch = canvas.getHeight();
-    const W = ref.current.model.plate.width_mm;
+    const W = contentWidth(ref.current.model); // include the row-dimension margin
     const H = ref.current.model.plate.height_mm;
     if (cw <= 0 || ch <= 0) return;
     const pad = 24;
@@ -380,6 +382,21 @@ export default function FabricStage(props: Props) {
         borderColor: "#2f6fed",
       });
       canvas.add(tag({ id: l.id, kind: "label" }, t as unknown as Rect));
+    }
+
+    // row-height dimensions in the right margin (non-interactive)
+    for (const d of rowDims(model)) {
+      const lopt = { stroke: "#333", strokeWidth: 0.4, selectable: false, evented: false };
+      canvas.add(new Line([d.plateRightX, d.topY, d.extEndX, d.topY], lopt));
+      canvas.add(new Line([d.plateRightX, d.bottomY, d.extEndX, d.bottomY], lopt));
+      canvas.add(new Line([d.dimX, d.topY, d.dimX, d.bottomY], lopt));
+      // architectural tick marks at each end (short 45° strokes)
+      canvas.add(new Line([d.dimX - 3, d.topY + 3, d.dimX + 3, d.topY - 3], lopt));
+      canvas.add(new Line([d.dimX - 3, d.bottomY + 3, d.dimX + 3, d.bottomY - 3], lopt));
+      canvas.add(new FabricText(String(d.value), {
+        left: d.textX, top: d.midY, originX: "left", originY: "center",
+        fontSize: 16, fontFamily: "Arial", fill: "#111", selectable: false, evented: false,
+      }));
     }
 
     applySelection(canvas); // re-apply selection visuals onto the fresh objects

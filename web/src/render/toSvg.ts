@@ -13,6 +13,7 @@
 import type { LayoutModel, Library, Element } from "../model/types";
 import { libItemSize } from "../model/resolve";
 import { rotatedFootprint } from "../model/geometry";
+import { rowDims, ROW_DIM_MARGIN_MM, detectRows } from "../model/rows";
 
 export interface RenderOptions {
   /** Draw selection-free; exports use this. Defaults to a clean render. */
@@ -68,6 +69,24 @@ function renderElement(el: Element, library: Library): string {
  * under a transform for paper-sized PDF/PNG output, while `renderToSvg` wraps it
  * for the live preview and the lightweight SVG export.
  */
+/** Row-height dimensions in the right margin (extension lines + arrows + value). */
+function renderRowDims(model: LayoutModel): string {
+  const parts: string[] = [];
+  const ln = (x1: number, y1: number, x2: number, y2: number) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#333" stroke-width="0.4"/>`;
+  for (const d of rowDims(model)) {
+    parts.push(`<g data-layer="TEXT">`);
+    parts.push(ln(d.plateRightX, d.topY, d.extEndX, d.topY));       // extension lines
+    parts.push(ln(d.plateRightX, d.bottomY, d.extEndX, d.bottomY));
+    parts.push(ln(d.dimX, d.topY, d.dimX, d.bottomY));             // dimension line
+    parts.push(`<path d="M${d.dimX} ${d.topY} L${d.dimX - 2} ${d.topY + 7} L${d.dimX + 2} ${d.topY + 7} Z" fill="#333"/>`);
+    parts.push(`<path d="M${d.dimX} ${d.bottomY} L${d.dimX - 2} ${d.bottomY - 7} L${d.dimX + 2} ${d.bottomY - 7} Z" fill="#333"/>`);
+    parts.push(`<text x="${d.textX}" y="${d.midY}" font-size="16" dominant-baseline="central">${d.value}</text>`);
+    parts.push(`</g>`);
+  }
+  return parts.join("");
+}
+
 export function renderPlateBody(model: LayoutModel, library: Library): string {
   const { width_mm: W, height_mm: H } = model.plate;
 
@@ -122,11 +141,20 @@ export function renderPlateBody(model: LayoutModel, library: Library): string {
     parts.push(`<text x="${x}" y="${y}" font-size="10" data-id="${l.id}" data-layer="TEXT">${esc(l.text)}</text>`);
   }
 
+  // row-height dimensions in the right margin
+  parts.push(renderRowDims(model));
+
   return parts.join("");
 }
 
+/** Total drawing width including the right-margin row-dimension stack (if any). */
+export function contentWidth(model: LayoutModel): number {
+  return model.plate.width_mm + (detectRows(model).length > 0 ? ROW_DIM_MARGIN_MM : 0);
+}
+
 export function renderToSvg(model: LayoutModel, library: Library, opts: RenderOptions = {}): string {
-  const { width_mm: W, height_mm: H } = model.plate;
+  const { height_mm: H } = model.plate;
+  const W = contentWidth(model); // include the dimension margin in the viewBox
   const scale = opts.unitsPerMm ?? 1;
   const wPx = W * scale;
   const hPx = H * scale;

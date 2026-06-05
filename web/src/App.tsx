@@ -4,9 +4,10 @@ import { SEED_LIBRARY, BANDS } from "./model/library";
 import type { Library, DxfLibItem } from "./model/types";
 import { validate } from "./model/validate";
 import { findOverlaps, tightClearances } from "./model/overlap";
+import { detectRows, setRowHeight } from "./model/rows";
 import {
   addElement, moveEntity, setRotation, deleteEntity,
-  updateElement, updateDuct, updateGroup, addSet, explodeGroup, addLabel, updateLabel, ductDimsFromBox,
+  updateElement, updateDuct, updateGroup, addSet, addDuct, explodeGroup, addLabel, updateLabel, ductDimsFromBox,
   type EntityKind,
 } from "./model/edit";
 import { useHistory } from "./editor/useHistory";
@@ -67,6 +68,7 @@ export default function App() {
   const issues = useMemo(() => validate(model, library), [model, library]);
   const overlapIds = useMemo(() => findOverlaps(model, library).ids, [model, library]);
   const tightIds = useMemo(() => tightClearances(model, library), [model, library]);
+  const rows = useMemo(() => detectRows(model), [model]);
 
   // exactly-one selection drives the per-entity editor; >1 shows a multi panel
   const single = selections.length === 1 ? selections[0] : null;
@@ -99,6 +101,11 @@ export default function App() {
     const { model: m2, id } = addSet(model, setLibKey, setCount, { tag_start: setTagStart || null });
     set(m2);
     setSelections([{ id, kind: "group" }]);
+  }
+  function doAddDuct(orientation: "horizontal" | "vertical") {
+    const { model: m2, id } = addDuct(model, orientation);
+    set(m2);
+    setSelections([{ id, kind: "duct" }]);
   }
   function dropPart(libKey: string, x: number, y: number) {
     const { model: m2, id } = addElement(model, libKey, library, x, y);
@@ -302,6 +309,12 @@ export default function App() {
           );
         })}
         <div className="addset">
+          <div className="band-name">Objects</div>
+          <button type="button" className="lib-item" onClick={() => doAddDuct("horizontal")}>+ Wire duct (row)</button>
+          <button type="button" className="lib-item" onClick={() => doAddDuct("vertical")}>+ Wire duct (vertical)</button>
+        </div>
+
+        <div className="addset">
           <div className="band-name">Add a set</div>
           <select value={setLibKey} onChange={(e) => setSetLibKey(e.target.value)}>
             {Object.values(library).map((it) => <option key={it.lib_key} value={it.lib_key}>{it.name}</option>)}
@@ -396,6 +409,17 @@ export default function App() {
             <Num label="Width (mm)" value={model.plate.width_mm} onChange={(v) => v > 0 && set({ ...model, plate: { ...model.plate, width_mm: v } })} />
             <Num label="Height (mm)" value={model.plate.height_mm} onChange={(v) => v > 0 && set({ ...model, plate: { ...model.plate, height_mm: v } })} />
             <p className="muted small">Adjust the mounting-plate size, then press <strong>Fit</strong> to recenter the view. Select an item to edit it, or click/drag a library part to add one.</p>
+
+            {rows.length > 0 && (
+              <>
+                <h3 className="mt">Rows ({rows.length})</h3>
+                <p className="muted small">Height of each device band (between horizontal ducts). Changing one moves the duct below it and shifts everything below.</p>
+                {rows.map((r, i) => (
+                  <Num key={i} label={`Row ${i + 1} (mm)`} value={r.height} step={5}
+                    onChange={(v) => v > 0 && set(setRowHeight(model, i, v))} />
+                ))}
+              </>
+            )}
           </>
         )}
 

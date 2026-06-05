@@ -120,6 +120,35 @@ class DxfAssembler:
         )
         t.set_placement((x, y), align=align)
 
+    def _line(self, x1: float, y1: float, x2: float, y2: float, layer: str = "TEXT") -> None:
+        a = self._to_dxf(x1, y1)
+        b = self._to_dxf(x2, y2)
+        self.msp.add_line(a, b, dxfattribs={"layer": layer})
+
+    # ----- row dimensions (right margin) -----
+
+    def _row_dims(self) -> None:
+        ducts = self.model.get("ducts", [])
+        horiz = sorted(
+            [d for d in ducts if float(d.get("rot_deg", 0)) % 180 == 0],
+            key=lambda d: float(d["y_mm"]),
+        )
+        if len(horiz) < 2:
+            return
+        W = float(self.model["plate"]["width_mm"])
+        dim_x = W + 40
+        ml = ezdxf.enums.TextEntityAlignment.MIDDLE_LEFT
+        for a, b in zip(horiz, horiz[1:]):
+            top_y = float(a["y_mm"]) + float(a["width_mm"])
+            bottom_y = float(b["y_mm"])
+            value = round(bottom_y - top_y, 1)
+            self._line(W, top_y, dim_x + 8, top_y)          # extension lines
+            self._line(W, bottom_y, dim_x + 8, bottom_y)
+            self._line(dim_x, top_y, dim_x, bottom_y)        # dimension line
+            self._line(dim_x - 3, top_y + 3, dim_x + 3, top_y - 3)      # ticks
+            self._line(dim_x - 3, bottom_y + 3, dim_x + 3, bottom_y - 3)
+            self._text(_num(value), dim_x + 12, (top_y + bottom_y) / 2, 16, align=ml)
+
     # ----- parts -----
 
     def _import_block(self, lib_key: str, block_ref: str) -> str:
@@ -217,6 +246,7 @@ class DxfAssembler:
             self._place_element(e)
         for l in self.model.get("labels", []):
             self._place_label(l)
+        self._row_dims()
         return self.doc
 
 

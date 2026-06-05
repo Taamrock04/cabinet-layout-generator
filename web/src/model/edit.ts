@@ -110,6 +110,23 @@ export function updateDuct(model: LayoutModel, id: string, patch: Partial<Duct>)
   return { ...model, ducts: model.ducts.map((d) => (d.id === id ? { ...d, ...patch } : d)) };
 }
 
+/** Add a wire duct. Horizontal ones become row separators; vertical ones are side/feed ducts. */
+export function addDuct(model: LayoutModel, orientation: "horizontal" | "vertical"): { model: LayoutModel; id: string } {
+  const id = uid("d");
+  const side = model.ducts.find((d) => d.x_mm === 0); // left side duct (for inset)
+  const sw = side?.width_mm ?? 0;
+  let duct: Duct;
+  if (orientation === "horizontal") {
+    const hd = model.ducts.filter((d) => d.rot_deg % 180 === 0).sort((a, b) => a.y_mm - b.y_mm);
+    const last = hd[hd.length - 1];
+    const y = last ? last.y_mm + last.width_mm + 200 : 100; // 200mm default row below the last
+    duct = { id, x_mm: sw, y_mm: y, length_mm: Math.max(100, model.plate.width_mm - 2 * sw), width_mm: 40, label_h_mm: 60, rot_deg: 0 };
+  } else {
+    duct = { id, x_mm: Math.round(model.plate.width_mm / 2), y_mm: 0, length_mm: model.plate.height_mm, width_mm: 60, label_h_mm: 60, rot_deg: 90 };
+  }
+  return { model: { ...model, ducts: [...model.ducts, duct] }, id };
+}
+
 /** Snap a duct's drawn thickness to the standard faces {30,40,60}. (brief §7 Req5) */
 export function snapDuctThickness(v: number): number {
   return [30, 40, 60].reduce((a, b) => (Math.abs(b - v) < Math.abs(a - v) ? b : a));
