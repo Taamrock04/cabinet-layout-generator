@@ -122,7 +122,7 @@ illustrated walkthrough of every feature.
 
 ## Tech stack
 
-- **Editor** — React 19 + Vite + TypeScript, Fabric.js v6 canvas, Vitest for the pure core
+- **Editor** — React 19 + Vite + TypeScript, Fabric.js v7 canvas, Vitest for the pure core
 - **DXF service** — Python + FastAPI + ezdxf, stateless with just two endpoints (`upload`, `export`)
 - **Free & portable on every layer** — layouts persist as JSON, equipment as raw DXF; nothing traps the engineer if a free tier changes
 

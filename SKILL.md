@@ -193,7 +193,7 @@ draft the engineer then edits — never required, never the final word.
 
 | Layer | Choice | Notes |
 |-------|--------|-------|
-| Editor frontend | **React 19 + Vite + TypeScript** | Fabric.js v6 canvas; imports SVG as true vector objects |
+| Editor frontend | **React 19 + Vite + TypeScript** | Fabric.js v7 canvas; imports SVG as true vector objects |
 | In-browser export | **svg2pdf.js + jsPDF** | vector PDF; PNG via canvas `toBlob`; SVG via serialize |
 | DXF service | **Python + FastAPI + ezdxf 1.4.4** | DXF read/write; native SVG backend + Pillow (no matplotlib) |
 | Tests | **Vitest** (web) | pure model/render core, no DOM dependency |
